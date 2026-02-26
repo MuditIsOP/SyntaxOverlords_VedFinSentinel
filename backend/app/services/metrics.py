@@ -187,16 +187,21 @@ async def compute_dashboard_metrics(db: AsyncSession, window_hours: int = 24) ->
                 vals = [r.get(upper_key, r.get(key, 0)) for r in idx_rows if isinstance(r, dict)]
                 index_avg_scores[key] = round(sum(vals) / max(len(vals), 1), 3)
 
-    # 8. Real Nikhilam speedup from audit logs
-    speedup_query = select(func.avg(RiskAuditLog.nikhilam_threshold)).where(
+    # 8. Average dynamic threshold from audit logs
+    threshold_query = select(func.avg(RiskAuditLog.dynamic_threshold)).where(
         RiskAuditLog.created_at >= window_start
     )
-    speedup_res = await db.execute(speedup_query)
-    nikhilam_avg = float(speedup_res.scalar() or 0.0)
+    threshold_res = await db.execute(threshold_query)
+    avg_threshold = float(threshold_res.scalar() or 0.0)
 
-    # 9. Vedic filter rate (transactions blocked by pre-filter / total)
-    vedic_blocked = risk_dist.get("FRAUD", 0)  # Approximate
-    vedic_filter_rate = round(vedic_blocked / max(total_txns, 1), 3)
+    # 9. Structural anomaly detection rate
+    anomaly_query = select(func.count(Transaction.txn_id)).where(
+        Transaction.txn_timestamp >= window_start,
+        Transaction.structural_anomalies.isnot(None)
+    )
+    anomaly_res = await db.execute(anomaly_query)
+    anomaly_count = anomaly_res.scalar() or 0
+    anomaly_rate = round(anomaly_count / max(total_txns, 1), 3)
 
     return {
         "window": f"{window_hours}h",
@@ -214,11 +219,11 @@ async def compute_dashboard_metrics(db: AsyncSession, window_hours: int = 24) ->
         "confusion_matrix": {"tp": tp, "fp": fp, "tn": tn, "fn": fn},
         "avg_latency_ms": avg_latency,
         "p95_latency_ms": p95_latency,
-        "vedic_filter_rate": vedic_filter_rate,
+        "structural_anomaly_rate": anomaly_rate,
         "risk_band_distribution": risk_dist,
         "index_avg_scores": index_avg_scores,
         "fraud_by_hour": fraud_by_hour,
-        "nikhilam_speedup": round(nikhilam_avg, 3) if nikhilam_avg else 0,
+        "avg_dynamic_threshold": round(avg_threshold, 3) if avg_threshold else 0.5,
         "system_health": "OPTIMAL",
         "training_report": training_report,
     }

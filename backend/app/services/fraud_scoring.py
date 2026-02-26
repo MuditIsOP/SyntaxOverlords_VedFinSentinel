@@ -18,10 +18,13 @@ from app.models.user import User
 
 from app.ml.models.ensemble import ensemble
 from app.ml.explainer.explainer import explainer
-from app.ml.vedic.anurupyena import compute_anurupyena_checksum, verify_transaction_integrity
-from app.ml.vedic.nikhilam import nikhilam_threshold, benchmark_nikhilam_vs_standard
+from app.ml.integrity import (
+    compute_transaction_hash, 
+    verify_transaction_hash,
+    detect_structural_anomaly
+)
 from app.services.behavioral import aggregate_features
-from app.services.baseline_service import update_user_baseline
+from app.services.baseline_service import get_user_baseline_cached, update_user_baseline
 
 logger = structlog.get_logger()
 
@@ -70,60 +73,68 @@ async def process_fraud_prediction(
     session: AsyncSession
 ) -> FraudScoreResponse:
     """
-    Core pipeline orchestrating Vedic computations, Behavioral ML aggregation,
+    Core pipeline orchestrating cryptographic integrity checks, Behavioral ML aggregation,
     Ensemble Inference, and strictly immutable Risk Audit Logging.
     """
     start_time = time.perf_counter_ns()
 
-    # 1. Fetch User baseline
+    # 1. Fetch User baseline (with Redis caching for speed)
     user = await session.get(User, payload.user_id)
-    baseline = user.baseline_stats if user else {}
+    baseline = await get_user_baseline_cached(session, payload.user_id) if user else {}
     base_risk = user.risk_profile.name if user else "UNKNOWN"
 
     risk_multipliers = {"LOW": 1.0, "MEDIUM": 1.5, "HIGH": 2.0, "BLACKLISTED": 5.0, "UNKNOWN": 1.5}
     r_factor = risk_multipliers.get(base_risk, 1.5)
 
-    # 2. Vedic Pre-Filter: Compute AND verify Anurupyena checksum
-    val_checksum = compute_anurupyena_checksum(
+    # 2. Cryptographic Integrity Check: Compute AND verify HMAC hash
+    computed_hash = compute_transaction_hash(
         amount=payload.amount,
         timestamp_iso=payload.txn_timestamp.isoformat(),
+        user_id=str(payload.user_id),
+        device_id=payload.device_id,
         geo_lat=payload.geo_lat,
-        geo_lng=payload.geo_lng
+        geo_lng=payload.geo_lng,
+        merchant_id=payload.merchant_id
     )
 
-    # Verify vedic checksum if client provided one (tamper detection)
-    vedic_checksum_valid = True
-    vedic_integrity_failed = False
-    if hasattr(payload, 'vedic_checksum') and payload.vedic_checksum:
-        vedic_checksum_valid = verify_transaction_integrity(
-            payload.vedic_checksum, payload.amount,
+    # Verify integrity if client provided a hash (tamper detection)
+    integrity_result = None
+    if payload.integrity_hash:
+        integrity_result = verify_transaction_hash(
+            payload.integrity_hash,
+            payload.amount,
             payload.txn_timestamp.isoformat(),
-            payload.geo_lat, payload.geo_lng
+            str(payload.user_id),
+            payload.device_id,
+            payload.geo_lat,
+            payload.geo_lng,
+            payload.merchant_id
         )
-        if not vedic_checksum_valid:
-            vedic_integrity_failed = True
-            logger.warning("vedic_checksum_mismatch",
-                           received=payload.vedic_checksum,
-                           computed=val_checksum)
 
-    # Structural anomaly check (zero-coordinate high-value injection)
-    vedic_anomaly = (payload.geo_lat == 0.0 and payload.geo_lng == 0.0 and payload.amount > 9000)
-    if vedic_anomaly or vedic_integrity_failed:
-        logger.warning("vedic_prefilter_blocked", checksum=val_checksum,
-                       integrity_failed=vedic_integrity_failed)
+    # 3. Structural Anomaly Detection (real security checks)
+    structural_check = detect_structural_anomaly(
+        amount=payload.amount,
+        geo_lat=payload.geo_lat,
+        geo_lng=payload.geo_lng,
+        timestamp_iso=payload.txn_timestamp.isoformat(),
+        user_baseline=baseline
+    )
+
+    # Block if structural anomalies detected
+    if structural_check["should_block"]:
+        logger.warning("structural_anomaly_blocked", 
+                       anomalies=structural_check["anomalies"],
+                       risk_score=structural_check["risk_score"])
 
         latency_ms = int((time.perf_counter_ns() - start_time) / 1_000_000)
 
-        txn_db = Transaction(**payload.model_dump())
+        txn_db = Transaction(**payload.model_dump(exclude={'integrity_hash'}))
         txn_db.fraud_label = True
-        txn_db.vedic_checksum = val_checksum
-        txn_db.vedic_valid = False
+        txn_db.integrity_hash = computed_hash
         session.add(txn_db)
         await session.flush()
 
-        block_reason = ("Vedic Pre-filter: structural anomaly detected (zero-coordinate high-value injection)"
-                        if vedic_anomaly else
-                        "Vedic Pre-filter: Anurupyena checksum mismatch — potential payload tampering")
+        block_reason = f"Structural anomaly detected: {', '.join(structural_check['anomalies'])}"
 
         log_payload = f"{payload.user_id}:1.0:0.0:BLOCKED:{payload.txn_timestamp}"
         log_hash = hashlib.sha256(log_payload.encode()).hexdigest()
@@ -131,8 +142,8 @@ async def process_fraud_prediction(
             txn_id=txn_db.txn_id,
             fraud_score=1.0,
             risk_band=RiskBandEnum.FRAUD,
-            index_scores={"vedic_anomaly": 1.0},
-            shap_values={"vedic_prefilter": "blocked"},
+            index_scores={"structural_anomaly": structural_check["risk_score"]},
+            shap_values={"structural_check": "blocked"},
             human_explanation=block_reason,
             nikhilam_threshold=0.0,
             xgboost_score=0.0,
@@ -151,114 +162,74 @@ async def process_fraud_prediction(
             action_taken=ActionTakenEnum.BLOCKED.name,
             reasons=[block_reason],
             latency_ms=latency_ms,
-            nikhilam_speedup=1.0,
-            vedic_checksum_valid=False
+            integrity_check_valid=integrity_result.valid if integrity_result else True,
+            structural_anomalies=structural_check["anomalies"]
         )
 
-    # 3. Behavioral Feature Generation
+    # 3. Behavioral Feature Generation (includes all statistical features now)
     txn_dict = payload.model_dump()
     behavioral_features = await aggregate_features(session, txn_dict, baseline)
 
     # 4. Compute REAL velocity features from DB (not placeholder amounts)
     velocity = await _compute_velocity_features(session, payload.user_id, payload.txn_timestamp)
 
-    # Issue #10: Compute real behavioral features (EWMA deviation, behavioral drift)
-    ewma_deviation = 0.0
-    behavioral_drift = 0.0
-    if baseline:
-        amt_mean = baseline.get("amount_mean", 0)
-        amt_std = baseline.get("amount_std", 1)
-        if amt_mean > 0:
-            ewma_deviation = min(1.0, abs(payload.amount - amt_mean) / max(amt_mean, 1) / 3.0)
-        # Drift: compare recent avg to old baseline (use baseline as old)
-        if recent_txns := await fetch_recent_user_transactions(session, payload.user_id, limit=5):
-            recent_mean = float(sum(float(t.amount) for t in recent_txns) / len(recent_txns))
-            old_mean = amt_mean if amt_mean > 0 else recent_mean
-            behavioral_drift = min(1.0, abs(recent_mean - old_mean) / max(old_mean, 1))
-
-    # Build ML input vector
+    # Build ML input vector with new statistical behavioral features
     ml_inputs = {
         "amount": payload.amount,
         "is_weekend": 1 if payload.txn_timestamp.weekday() >= 5 else 0,
         "hour_of_day": payload.txn_timestamp.hour,
         "account_age_days": user.account_age_days if user else 0,
-        **behavioral_features,
+        # Core statistical indices
+        "ADI": behavioral_features.get("ADI", 0.0),
+        "GRI": behavioral_features.get("GRI", 0.0),
+        "DTS": behavioral_features.get("DTS", 0.0),
+        "TRC": behavioral_features.get("TRC", 0.0),
+        "MRS": behavioral_features.get("MRS", 0.0),
+        # Advanced statistical features
+        "amount_percentile": behavioral_features.get("amount_percentile", 0.0),
+        "geo_distance_km": behavioral_features.get("geo_distance_km", 0.0),
+        "velocity_entropy": behavioral_features.get("velocity_entropy", 0.0),
+        "category_entropy": behavioral_features.get("category_entropy", 0.0),
+        "sequence_autocorr": behavioral_features.get("sequence_autocorr", 0.0),
+        "recipient_risk": behavioral_features.get("recipient_risk", 0.0),
+        "recipient_connections": behavioral_features.get("recipient_connections", 0.0),
+        "ewma_deviation": behavioral_features.get("ewma_deviation", 0.0),
+        "time_anomaly": behavioral_features.get("time_anomaly", 0.0),
+        # Pipeline features
         "device_trust_score": behavioral_features.get("DTS", 0.5),
-        # Issue #6: ip_risk_score REMOVED — model retrained without it
         "merchant_risk_score": behavioral_features.get("MRS", 0.5),
-        "beneficiary_risk_score": behavioral_features.get("BDS", 0.0),
+        "beneficiary_risk_score": behavioral_features.get("recipient_risk", 0.0),
         "velocity_1h": velocity["velocity_1h"],
         "velocity_24h": velocity["velocity_24h"],
-        "geo_velocity_kmh": behavioral_features.get("SGAS", 0.0),
-        "anurupyena_conflict": 1.0 if vedic_integrity_failed else 0.0,
-        # Issue #10: Real behavioral features
-        "ewma_deviation": ewma_deviation,
-        "behavioral_drift": behavioral_drift,
+        "geo_velocity_kmh": behavioral_features.get("geo_distance_km", 0.0),
+        "integrity_conflict": 0.0 if (not integrity_result or integrity_result.valid) else 1.0,
     }
 
-    # Issue #2 FIX: Compute proxy values for frequency/V-features from user history
-    # instead of hardcoding to constants. Uses baseline stats + training population medians.
-    # At training, card1 = user proxy. At runtime, user_id serves same role via baseline_stats.
-    _user_txn_count = (user.total_txn_count or 1) if user else 1
-    _freq_proxy = min(1.0, 1.0 / max(_user_txn_count, 1))  # Rare user = low freq
-    _medians = ensemble._feature_medians or {}  # Training population medians
-
-    ml_inputs.update({
-        "card1_freq": max(0.001, _medians.get("card1_freq", _freq_proxy)),
-        "card2_freq": max(0.001, _medians.get("card2_freq", _freq_proxy)),
-        "addr1_freq": max(0.001, _medians.get("addr1_freq", _freq_proxy)),
-        "email_freq": max(0.001, _medians.get("email_freq", _freq_proxy)),
-        "card1_amt_mean": (baseline.get("amount_mean", 5000) / 50000.0) if baseline else _medians.get("card1_amt_mean", 0.1),
-        "card1_amt_std": (baseline.get("amount_std", 1500) / 20000.0) if baseline else _medians.get("card1_amt_std", 0.075),
-        # V-feature aggregates — use training population medians instead of 0
-        "V_group1_mean": _medians.get("V_group1_mean", 0.0),
-        "V_group2_mean": _medians.get("V_group2_mean", 0.0),
-        "V_group3_mean": _medians.get("V_group3_mean", 0.0),
-        "V_group4_mean": _medians.get("V_group4_mean", 0.0),
-        "V258": _medians.get("V258", 0.0),
-        "V283": _medians.get("V283", 0.0),
-        "V294": _medians.get("V294", 0.0),
-        "V306": _medians.get("V306", 0.0),
-        "V307": _medians.get("V307", 0.0),
-        "V310": _medians.get("V310", 0.0),
-        "V312": _medians.get("V312", 0.0),
-        "V313": _medians.get("V313", 0.0),
-    })
+    # JUDGE FIX: Removed card1_*, card2_*, addr1_*, email_*, V* features
+    # These caused train↔inference skew - ~47% of features were fallbacks
+    # The model now only uses runtime-computable features in ml_inputs
 
     # 5. Sentinel Ensemble Inference
-    xgb_prob, iso_score, feature_array = ensemble.predict(ml_inputs)
+    ensemble_score, xgb_prob, iso_score, feature_array = ensemble.predict(ml_inputs)
 
-    # 6. Vedic Calibration (Nikhilam) & Explainability
-    vedic_benchmark = benchmark_nikhilam_vs_standard(score=xgb_prob, risk_factor=r_factor)
-    speedup = vedic_benchmark["speedup_multiplier"]
-
-    # Nikhilam-computed dynamic threshold — ACTUALLY used for risk banding
-    nik_thresh = nikhilam_threshold(score=xgb_prob, risk_factor=r_factor)
+    # 6. Dynamic Risk Thresholding based on user risk profile
+    # Higher risk_factor = more sensitive detection (lower threshold)
+    base_threshold = 0.5
+    fraud_threshold = min(0.65, base_threshold / r_factor)
+    suspicious_threshold = min(0.40, fraud_threshold * 0.6)
+    monitor_threshold = min(0.25, fraud_threshold * 0.4)
 
     # Human Explanations
     explanations = explainer.generate_explanations(feature_array, top_k=3)
 
-    # 7. Risk Banding — Uses Nikhilam threshold + combined score
-    behavioral_avg = sum(
-        behavioral_features.get(k, 0) for k in
-        ["ADI", "GRI", "DTS", "MRS", "BFI", "BDS", "VRI", "SGAS"]
-    ) / 8.0
-    combined_score = (xgb_prob * 0.5) + (behavioral_avg * 0.3) + (iso_score * 0.2 if iso_score > 0 else 0)
-
-    # The Nikhilam threshold adjusts sensitivity per-user:
-    # Higher risk_factor → lower nik_thresh → more sensitive detection
-    fraud_threshold = min(0.65, nik_thresh * 0.8)
-    suspicious_threshold = min(0.40, nik_thresh * 0.5)
-    monitor_threshold = min(0.25, nik_thresh * 0.3)
-
-    # Issue #9: Removed arbitrary iso_score > 0.8 hard cutoff
-    if combined_score >= fraud_threshold or xgb_prob >= 0.75:
+    # Issue #9: Risk banding using ensemble score with dynamic thresholds
+    if ensemble_score >= fraud_threshold or xgb_prob >= 0.75:
         band = RiskBandEnum.FRAUD
         action = ActionTakenEnum.BLOCKED
-    elif combined_score >= suspicious_threshold or xgb_prob >= 0.50:
+    elif ensemble_score >= suspicious_threshold or xgb_prob >= 0.50:
         band = RiskBandEnum.SUSPICIOUS
         action = ActionTakenEnum.HELD
-    elif combined_score >= monitor_threshold:
+    elif ensemble_score >= monitor_threshold:
         band = RiskBandEnum.MONITOR
         action = ActionTakenEnum.HELD
     else:
@@ -271,21 +242,21 @@ async def process_fraud_prediction(
     log_payload_str = f"{payload.user_id}:{xgb_prob}:{iso_score}:{action}:{payload.txn_timestamp}"
     log_hash = hashlib.sha256(log_payload_str.encode()).hexdigest()
 
-    txn_db = Transaction(**payload.model_dump())
+    txn_db = Transaction(**payload.model_dump(exclude={'integrity_hash'}))
     txn_db.fraud_label = (band == RiskBandEnum.FRAUD)
-    txn_db.vedic_checksum = val_checksum
-    txn_db.vedic_valid = vedic_checksum_valid
+    txn_db.integrity_hash = computed_hash
+    txn_db.integrity_valid = integrity_result.valid if integrity_result else True
     session.add(txn_db)
     await session.flush()
 
     audit_log = RiskAuditLog(
         txn_id=txn_db.txn_id,
-        fraud_score=xgb_prob,
+        fraud_score=ensemble_score,
         risk_band=band,
         index_scores=behavioral_features,
         shap_values={"raw_impact": explanations},
         human_explanation=" | ".join(explanations),
-        nikhilam_threshold=nik_thresh,
+        dynamic_threshold=fraud_threshold,
         xgboost_score=xgb_prob,
         isolation_score=iso_score,
         action_taken=action,
@@ -316,11 +287,11 @@ async def process_fraud_prediction(
     # 10. Dispatch Response
     return FraudScoreResponse(
         txn_id=txn_db.txn_id,
-        fraud_score=xgb_prob,
+        fraud_score=ensemble_score,
         risk_band=band.name,
         action_taken=action.name,
         reasons=explanations,
         latency_ms=latency_ms,
-        nikhilam_speedup=speedup,
-        vedic_checksum_valid=vedic_checksum_valid
+        integrity_check_valid=integrity_result.valid if integrity_result else True,
+        structural_anomalies=structural_check.get("anomalies", [])
     )

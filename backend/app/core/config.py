@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Security
-    SECRET_KEY: str = "super_secret_for_local_testing"
+    SECRET_KEY: str = Field(default="", description="Generate with: openssl rand -hex 32")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
@@ -26,10 +26,11 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
-        env_file=".env", 
+        env_file=[".env", ".env.local"], 
         env_file_encoding="utf-8", 
         case_sensitive=True,
-        extra="ignore"
+        extra="ignore",
+        validate_assignment=True
     )
 
 settings = Settings()

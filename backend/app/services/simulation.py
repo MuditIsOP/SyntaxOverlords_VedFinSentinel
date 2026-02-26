@@ -8,70 +8,109 @@ from typing import AsyncGenerator
 from app.schemas.predict import TransactionRequest
 from app.models.base import AttackScenarioEnum
 
-def generate_attack_payload(scenario: AttackScenarioEnum, base_user_id: uuid.UUID) -> tuple[TransactionRequest, dict]:
-    """Generates a malicious transaction mimicking specific topologies. Returns (Payload, Meta)"""
+def generate_attack_payload(scenario: AttackScenarioEnum, base_user_id: uuid.UUID, iteration: int = 0) -> tuple[TransactionRequest, dict]:
+    """
+    Generates realistic attack payloads matching PRD scenarios.
+    
+    Scenarios:
+    - GEO_SPOOFING: Rapid location changes (VPN, proxy hopping)
+    - BURST_MICRO: High-frequency small transactions (card testing)
+    - ACCOUNT_TAKEOVER: New device + new location + high value
+    """
     now = datetime.now(timezone.utc)
     
-    # Regional/Global Location Pool
-    locations = [
+    # Location pools for realistic scenarios
+    INDIA_LOCATIONS = [
         {"city": "Mumbai", "lat": 19.0760, "lng": 72.8777},
+        {"city": "Delhi", "lat": 28.6139, "lng": 77.2090},
+        {"city": "Bangalore", "lat": 12.9716, "lng": 77.5946},
+        {"city": "Chennai", "lat": 13.0827, "lng": 80.2707},
+    ]
+    
+    FOREIGN_LOCATIONS = [
         {"city": "New York", "lat": 40.7128, "lng": -74.0060},
         {"city": "London", "lat": 51.5074, "lng": -0.1278},
         {"city": "Singapore", "lat": 1.3521, "lng": 103.8198},
         {"city": "Dubai", "lat": 25.2048, "lng": 55.2708},
-        {"city": "Chennai", "lat": 13.0827, "lng": 80.2707},
-        {"city": "Delhi", "lat": 28.6139, "lng": 77.2090},
     ]
     
-    loc = random.choice(locations)
-    
-    if scenario == AttackScenarioEnum.VELOCITY_BURST:
+    if scenario == AttackScenarioEnum.BURST_MICRO:
+        # Card testing: small amounts, rapid fire, same device
+        # PRD: 50 transactions under ₹999 in 3 minutes
         payload = TransactionRequest(
             user_id=base_user_id,
-            amount=round(random.uniform(10, 50), 2),
-            txn_timestamp=now,
+            amount=round(random.uniform(100, 999), 2),  # Under ₹999
+            txn_timestamp=now - timedelta(seconds=iteration * 3),  # Every 3 seconds
+            geo_lat=INDIA_LOCATIONS[0]["lat"],  # Same location
+            geo_lng=INDIA_LOCATIONS[0]["lng"],
+            device_id="burst-test-device",
+            device_os="android",
+            merchant_category="GIFT_CARDS"  # High risk category
+        )
+        return payload, {"scenario": "burst_micro", "iteration": iteration, "city": "Mumbai"}
+        
+    elif scenario == AttackScenarioEnum.GEO_SPOOFING:
+        # VPN/proxy hopping: same transaction, different countries rapidly
+        # Alternate between India and foreign locations
+        is_foreign = iteration % 2 == 1
+        loc_pool = FOREIGN_LOCATIONS if is_foreign else INDIA_LOCATIONS
+        loc = loc_pool[iteration % len(loc_pool)]
+        
+        payload = TransactionRequest(
+            user_id=base_user_id,
+            amount=round(random.uniform(1000, 5000), 2),
+            txn_timestamp=now - timedelta(minutes=iteration * 2),  # Every 2 minutes
             geo_lat=loc["lat"],
             geo_lng=loc["lng"],
-            device_id="anomalous-script-bot",
-            merchant_category="GIFT_CARDS"
+            device_id="geo-spoof-vpn",
+            device_os="ios",
+            merchant_category="CRYPTO"
         )
-        return payload, loc
-    elif scenario == AttackScenarioEnum.IMPOSSIBLE_TRAVEL:
-        target = random.choice([l for l in locations if l["city"] != "London"])
-        is_london = random.choice([True, False])
-        active_loc = {"city": "London", "lat": 51.5074, "lng": -0.1278} if is_london else target
+        return payload, {"scenario": "geo_spoofing", "iteration": iteration, "city": loc["city"], "is_foreign": is_foreign}
+        
+    elif scenario == AttackScenarioEnum.ACCOUNT_TAKEOVER:
+        # New device, new location, unknown recipient, high value
+        loc = random.choice(FOREIGN_LOCATIONS)
+        
+        # Progressive escalation in ATO scenario
+        if iteration == 0:
+            # First: device change from trusted location
+            amount = 500
+            merchant = "GROCERY"
+        elif iteration == 1:
+            # Second: new location + new device
+            amount = 5000
+            merchant = "ELECTRONICS"
+        else:
+            # Third: high value to unknown recipient
+            amount = 49500
+            merchant = "CRYPTO"
+            
         payload = TransactionRequest(
             user_id=base_user_id,
-            amount=round(random.uniform(100, 1000), 2),
-            txn_timestamp=now,
-            geo_lat=active_loc["lat"], 
-            geo_lng=active_loc["lng"],
-            device_id="stolen-session",
-            merchant_category="ELECTRONICS"
+            amount=amount,
+            txn_timestamp=now - timedelta(minutes=iteration * 5),
+            geo_lat=loc["lat"],
+            geo_lng=loc["lng"],
+            device_id="ato-new-device-xyz",
+            device_os="web",  # Suspicious: web vs mobile app
+            merchant_category=merchant,
+            recipient_id=uuid.uuid4()  # Unknown recipient
         )
-        return payload, active_loc
-    elif scenario == AttackScenarioEnum.VEDIC_COLLISION:
-        payload = TransactionRequest(
-            user_id=base_user_id,
-            amount=9999.99,
-            txn_timestamp=now,
-            geo_lat=0.0,
-            geo_lng=0.0,
-            device_id="vedic-spoof",
-            merchant_category="WIRE_TRANSFER"
-        )
-        return payload, {"city": "Vedic Virtual Hub", "lat": 0.0, "lng": 0.0}
+        return payload, {"scenario": "account_takeover", "iteration": iteration, "city": loc["city"], "stage": ["device_change", "geo_change", "high_value"][min(iteration, 2)]}
     else:
+        # Fallback to normal transaction
+        loc = random.choice(INDIA_LOCATIONS)
         payload = TransactionRequest(
             user_id=base_user_id,
-            amount=25.00,
+            amount=500.00,
             txn_timestamp=now,
             geo_lat=loc["lat"],
             geo_lng=loc["lng"],
-            device_id="known-device",
+            device_id="normal-device",
             merchant_category="GROCERY"
         )
-        return payload, loc
+        return payload, {"scenario": "normal", "city": loc["city"]}
 
 from app.services.fraud_scoring import process_fraud_prediction
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -83,30 +122,28 @@ async def stream_attack_simulation(
     user_id: uuid.UUID,
     rate_limit_ms: int
 ) -> AsyncGenerator[str, None]:
-    """Generates NDJSON (Newline Delimited JSON) stream of attack vectors."""
-    # Mock request for the scoring pipeline
+    """Generates NDJSON stream of realistic attack vectors matching PRD scenarios."""
     from fastapi import Request
-    # Create a minimal mock request
     mock_request = type('Request', (), {'headers': {}, 'client': type('Client', (), {'host': '127.0.0.1'})()})()
 
     for i in range(count):
-        payload, loc = generate_attack_payload(scenario, user_id)
+        # FIXED: Pass iteration for progressive scenarios
+        payload, meta = generate_attack_payload(scenario, user_id, iteration=i)
         
-        # Execute real prediction
         try:
             res = await process_fraud_prediction(mock_request, payload, session)
             
             res_dict = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "stage": "SIMULATING",
-                "details": f"Processed {scenario.name} in {loc['city']} | Result: {res.risk_band} | Action: {res.action_taken} | Reasons: {', '.join(res.reasons)}",
+                "scenario": meta.get("scenario"),
+                "iteration": i,
+                "details": f"{scenario.name} | {meta.get('city', 'N/A')} | Stage: {meta.get('stage', 'N/A')}",
                 "txn_id": str(res.txn_id),
                 "fraud_score": float(res.fraud_score),
                 "risk_band": res.risk_band,
                 "action_taken": res.action_taken,
                 "reasons": res.reasons,
-                "scenario_tag": scenario.name,
-                "iteration": i
             }
             
             yield json.dumps(res_dict) + "\n"
@@ -114,7 +151,7 @@ async def stream_attack_simulation(
             yield json.dumps({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "stage": "ERROR",
-                "details": f"Fault in scoring pipeline: {str(e)}",
+                "error": str(e),
                 "iteration": i
             }) + "\n"
             

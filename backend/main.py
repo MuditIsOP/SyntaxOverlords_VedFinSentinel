@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -6,6 +6,7 @@ from slowapi.errors import RateLimitExceeded
 import time
 import uuid
 import structlog
+import os
 
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -37,16 +38,16 @@ def create_app() -> FastAPI:
     app.add_exception_handler(VedFinException, rfc7807_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
-    # CORS Middleware Setup
+    # CORS Middleware Setup - Restrictive for production
+    allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if os.getenv("ENVIRONMENT") == "development":
+        allowed_origins.extend(["http://0.0.0.0:3000"])
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            "http://0.0.0.0:3000"
-        ], 
+        allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -73,9 +74,25 @@ def create_app() -> FastAPI:
 
     # Health Check Example Route
     @app.get(f"{settings.API_V1_STR}/health")
-    @limiter.limit("5/minute")
+    @limiter.limit("10/minute")
     async def health_check(request: Request):
-        return {"status": "ok", "version": settings.VERSION}
+        """Health check endpoint with system status"""
+        try:
+            # Check database connection
+            from app.db.session import engine
+            async with engine.begin() as conn:
+                await conn.execute("SELECT 1")
+            db_status = "healthy"
+        except Exception:
+            db_status = "unhealthy"
+            
+        return {
+            "status": "ok" if db_status == "healthy" else "degraded",
+            "version": settings.VERSION,
+            "environment": os.getenv("ENVIRONMENT", "development"),
+            "database": db_status,
+            "timestamp": time.time()
+        }
 
     # API Routers
     from app.api.v1 import api_router

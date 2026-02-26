@@ -8,3 +8,16 @@ ml-research/artifacts/*.pkl
 ml-research/data/
 data/ieee-cis/raw/test_transaction.csv
 data/ieee-cis/raw/train_transaction.csv
+
+# Documentation and planning files (not source code)
+AGENT_RULES.md
+CHANGELOG.md
+DesignDoc.md
+HONEST_IMPLEMENTATION.md
+JUDGE_REVIEW.md
+JUDGE_RESPONSE.md
+PPT_CONTENT.md
+PPT_TEMPLATE.pdf
+presentation.html
+PRD.md
+tasks/*.md

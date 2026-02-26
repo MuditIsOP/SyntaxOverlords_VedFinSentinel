@@ -1,8 +1,8 @@
 """
 Baseline Service — Computes user behavioral baselines from transaction history.
 
-Instead of relying on hardcoded seed data, this service queries a user's
-actual transaction history (last 90 days) and computes:
+Now with Redis caching for sub-millisecond baseline retrieval.
+Queries a user's actual transaction history (last 90 days) and computes:
 - amount_mean, amount_std
 - trusted_devices
 - trusted_locations
@@ -16,12 +16,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.core.cache import cache
 import structlog
 
 logger = structlog.get_logger()
 
 BASELINE_WINDOW_DAYS = 90
 MIN_TRANSACTIONS_FOR_BASELINE = 3
+
+
+async def get_user_baseline_cached(session: AsyncSession, user_id) -> dict:
+    """
+    Get user baseline with Redis caching for performance.
+    
+    Returns cached baseline if available, otherwise computes and caches.
+    """
+    # Try cache first
+    cached = await cache.get_user_baseline(str(user_id))
+    if cached:
+        logger.debug("baseline_cache_hit", user_id=str(user_id))
+        return cached
+    
+    # Cache miss - compute from DB
+    logger.debug("baseline_cache_miss", user_id=str(user_id))
+    baseline = await compute_user_baseline(session, user_id)
+    
+    # Store in cache for next time
+    await cache.set_user_baseline(str(user_id), baseline)
+    
+    return baseline
+
+
+async def invalidate_user_baseline_cache(user_id) -> bool:
+    """Invalidate baseline cache after update."""
+    return await cache.invalidate_baseline(str(user_id))
 
 
 async def compute_user_baseline(session: AsyncSession, user_id) -> dict:
@@ -113,7 +141,7 @@ async def compute_user_baseline(session: AsyncSession, user_id) -> dict:
 
 
 async def update_user_baseline(session: AsyncSession, user_id) -> dict:
-    """Compute and persist a user's baseline to the database."""
+    """Compute, persist, and cache a user's baseline."""
     baseline = await compute_user_baseline(session, user_id)
     
     user = await session.get(User, user_id)
@@ -121,6 +149,9 @@ async def update_user_baseline(session: AsyncSession, user_id) -> dict:
         user.baseline_stats = baseline
         await session.commit()
         logger.info("baseline_persisted", user_id=str(user_id))
+    
+    # Update cache with new baseline
+    await cache.set_user_baseline(str(user_id), baseline)
     
     return baseline
 

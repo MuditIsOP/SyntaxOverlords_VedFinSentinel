@@ -15,7 +15,7 @@ class RiskAuditLog(Base):
     index_scores       = Column(JSON, nullable=False)
     shap_values        = Column(JSON, nullable=False)
     human_explanation  = Column(Text, nullable=False)
-    nikhilam_threshold = Column(Numeric(12,4))
+    dynamic_threshold  = Column(Numeric(12,4))
     xgboost_score      = Column(Numeric(5,4))
     isolation_score    = Column(Numeric(5,4))
     ensemble_weight_xgb= Column(Numeric(4,3))

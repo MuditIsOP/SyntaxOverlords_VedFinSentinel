@@ -230,51 +230,74 @@ async def test_bds_recipient_scoring(db_session):
     assert bds_unknown == 0.3, f"Unknown recipient should get 0.3, got {bds_unknown}"
 
 
-# ===== TEST 5: Vedic Checksum Integrity =====
+# ===== TEST 5: Cryptographic Integrity Check =====
 @pytest.mark.asyncio
-async def test_vedic_checksum_integrity():
-    """Verify Vedic checksum detects tampered payloads."""
-    from app.ml.vedic.anurupyena import (
-        beejank, compute_anurupyena_checksum, verify_transaction_integrity
+async def test_cryptographic_integrity():
+    """Verify HMAC-SHA256 detects tampered payloads."""
+    from app.ml.integrity import (
+        compute_transaction_hash, verify_transaction_hash, detect_structural_anomaly
     )
     
-    # Beejank fundamental tests
-    assert beejank(0) == 0
-    assert beejank(9) == 9
-    assert beejank(18) == 9  # 1+8=9
-    assert beejank(123) == 6  # 1+2+3=6
-    assert beejank(999) == 9
+    # Hash determinism
+    h1 = compute_transaction_hash(
+        5000.0, "2026-01-15T14:30:00+00:00", 
+        "user-123", "device-456", 28.61, 77.21
+    )
+    h2 = compute_transaction_hash(
+        5000.0, "2026-01-15T14:30:00+00:00", 
+        "user-123", "device-456", 28.61, 77.21
+    )
+    assert h1 == h2, "Same inputs should produce same hash"
     
-    # Checksum determinism
-    cs1 = compute_anurupyena_checksum(5000.0, "2026-01-15T14:30:00+00:00", 28.61, 77.21)
-    cs2 = compute_anurupyena_checksum(5000.0, "2026-01-15T14:30:00+00:00", 28.61, 77.21)
-    assert cs1 == cs2, "Same inputs should produce same checksum"
-    
-    # Tamper detection: changing amount changes checksum
-    cs_tampered = compute_anurupyena_checksum(5001.0, "2026-01-15T14:30:00+00:00", 28.61, 77.21)
-    assert cs1 != cs_tampered, "Different amount should produce different checksum"
+    # Tamper detection: changing amount changes hash
+    h_tampered = compute_transaction_hash(
+        5001.0, "2026-01-15T14:30:00+00:00", 
+        "user-123", "device-456", 28.61, 77.21
+    )
+    assert h1 != h_tampered, "Different amount should produce different hash"
     
     # Verify integrity
-    assert verify_transaction_integrity(cs1, 5000.0, "2026-01-15T14:30:00+00:00", 28.61, 77.21) == True
-    assert verify_transaction_integrity(cs1, 6000.0, "2026-01-15T14:30:00+00:00", 28.61, 77.21) == False
+    result = verify_transaction_hash(
+        h1, 5000.0, "2026-01-15T14:30:00+00:00",
+        "user-123", "device-456", 28.61, 77.21
+    )
+    assert result.valid == True
+    
+    # Tampered should fail
+    result_tampered = verify_transaction_hash(
+        h1, 6000.0, "2026-01-15T14:30:00+00:00",
+        "user-123", "device-456", 28.61, 77.21
+    )
+    assert result_tampered.valid == False
+    
+    # Structural anomaly detection
+    anomaly = detect_structural_anomaly(
+        9500.0, 0.0, 0.0, "2026-01-15T14:30:00+00:00"
+    )
+    assert anomaly["should_block"] == True
+    assert "zero_coordinate_high_value" in anomaly["anomalies"]
 
 
-# ===== TEST 6: Nikhilam Correctness =====
+# ===== TEST 6: Statistical Behavioral Features =====
 @pytest.mark.asyncio
-async def test_nikhilam_multiplication():
-    """Verify Nikhilam sutra produces correct multiplication results."""
-    from app.ml.vedic.nikhilam import nikhilam_multiply, benchmark_nikhilam_vs_standard
+async def test_statistical_behavioral_features():
+    """Verify new statistical features work correctly."""
+    from app.services.behavioral import (
+        compute_amount_zscore, compute_velocity_entropy,
+        compute_ewma_deviation, compute_time_of_day_anomaly
+    )
     
-    # Classic examples
-    assert nikhilam_multiply(97, 96) == 97 * 96  # 9312
-    assert nikhilam_multiply(98, 93) == 98 * 93  # 9114
-    assert nikhilam_multiply(104, 102) == 104 * 102  # 10608
-    assert nikhilam_multiply(88, 97) == 88 * 97  # 8536
+    # Z-score calculation
+    baseline = {"amount_mean": 1000.0, "amount_std": 200.0}
+    zscore = compute_amount_zscore(1500.0, baseline)
+    assert 0.0 <= zscore <= 1.0, f"Z-score should be in [0,1], got {zscore}"
     
-    # Benchmark should show products match
-    result = benchmark_nikhilam_vs_standard(0.72, 1.5)
-    assert result["products_match"] == True, "Nikhilam and standard should produce same result"
-    assert result["nikhilam_result"] > 0, "Should produce a valid threshold"
+    # Time anomaly
+    from datetime import datetime, timezone
+    tx_time = datetime(2026, 1, 15, 3, 0, 0, tzinfo=timezone.utc)  # 3 AM
+    # Empty history should give moderate risk for unusual hour
+    anomaly = compute_time_of_day_anomaly(tx_time, [])
+    assert 0.0 <= anomaly <= 1.0
 
 
 # ===== Issue #6 FIX: Feature Range and Model Tests =====

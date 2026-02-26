@@ -28,6 +28,7 @@ class ReviewerStatusEnum(str, PyEnum):
     CLEARED = 'CLEARED'
 
 class AttackScenarioEnum(str, PyEnum):
-    VELOCITY_BURST = 'VELOCITY_BURST'
-    IMPOSSIBLE_TRAVEL = 'IMPOSSIBLE_TRAVEL'
-    VEDIC_COLLISION = 'VEDIC_COLLISION'
+    # FIXED: Match PRD specification exactly
+    GEO_SPOOFING = 'GEO_SPOOFING'         # Simulate login from new country, VPN
+    BURST_MICRO = 'BURST_MICRO'            # 50 transactions under ₹999 in 3 minutes
+    ACCOUNT_TAKEOVER = 'ACCOUNT_TAKEOVER'  # New device, new geo, unknown recipients

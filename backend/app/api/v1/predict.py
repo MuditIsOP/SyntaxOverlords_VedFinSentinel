@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from uuid import UUID
 import structlog
 
 from app.schemas.predict import TransactionRequest, FraudScoreResponse
 from app.services.fraud_scoring import process_fraud_prediction
+from app.services.attack_simulation import attack_runner
 from app.core.dependencies import VerifiedToken
 
 from app.db.session import get_db_session
@@ -21,7 +23,7 @@ async def predict_transaction(
 ):
     """
     Evaluates a single transaction comprehensively utilizing XGBoost, 
-    Isolation Forest, SHAP, Behavioral features, and Vedic Mathematics constraints.
+    Isolation Forest, SHAP, and statistical behavioral features.
     Returns HTTP 200 strictly formatted by `FraudScoreResponse`.
     """
     logger.info("predict_request_received", mapped_user=str(payload.user_id))
@@ -47,3 +49,55 @@ async def bulk_predict_transactions(
         results.append(res)
         
     return results
+
+
+@router.post("/simulate/attack", summary="Attack Simulation Lab")
+async def simulate_attack(
+    attack_type: str,
+    user_id: UUID,
+    num_transactions: int = 10
+):
+    """
+    Attack Simulation Laboratory - Run realistic attack scenarios.
+    
+    Available attack types:
+    - card_testing: Rapid small transactions to test stolen cards
+    - account_takeover: Transactions from new devices/locations  
+    - velocity_burst: Burst of transactions in short time window
+    - impossible_travel: Impossible travel patterns
+    - merchant_fraud: Suspicious merchant category patterns
+    
+    Returns detailed detection results for demo purposes.
+    """
+    logger.info("attack_simulation_requested", attack_type=attack_type, user_id=str(user_id))
+    
+    result = await attack_runner.run_simulation(
+        attack_type=attack_type,
+        user_id=user_id,
+        num_transactions=num_transactions
+    )
+    
+    return result
+
+
+@router.post("/simulate/all", summary="Run All Attack Simulations")
+async def simulate_all_attacks(user_id: UUID):
+    """
+    Run all attack types and return comprehensive detection results.
+    This is the "Heist & Catch" demo endpoint for the hackathon.
+    """
+    logger.info("full_attack_simulation_requested", user_id=str(user_id))
+    
+    results = await attack_runner.run_all_simulations(user_id)
+    
+    # Calculate overall detection rate
+    total_attacks = sum(r["total_transactions"] for r in results)
+    total_detected = sum(r["fraud_detected"] for r in results)
+    
+    return {
+        "demo_title": "The Heist & Catch - Attack Simulation Laboratory",
+        "user_id": str(user_id),
+        "total_simulations": len(results),
+        "overall_detection_rate": total_detected / total_attacks if total_attacks > 0 else 0,
+        "simulations": results
+    }
