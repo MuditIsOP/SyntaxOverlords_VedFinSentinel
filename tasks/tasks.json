@@ -1,0 +1,549 @@
+{
+  "projectName": "VedFin Sentinel",
+  "version": "1.0.0",
+  "lastUpdated": "2026-02-22",
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Project Initialization & Database Schema Scaffold",
+      "description": "Set up monorepo, database schema on PostgreSQL, Alembic migrations, and initial ORM models. Create seed.py.",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "medium",
+      "estimatedHours": 3,
+      "dependencies": [],
+      "prdReference": "Section 8. Database Design",
+      "designReference": "Section 2. Database Design & 10. Agent Checklist Phase 1",
+      "agentRuleReference": [
+        "Rule 6. DATABASE RULES",
+        "Rule 11. GIT RULES"
+      ],
+      "architectureLayer": "database",
+      "complianceImpact": true,
+      "securityImpact": true,
+      "performanceImpact": true,
+      "files": [
+        "backend/models/*.py",
+        "backend/migrations/env.py",
+        "backend/app/core/seed.py",
+        ".gitignore",
+        ".env.example"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 3,
+      "assignedTo": "AI",
+      "tags": [
+        "database",
+        "backend",
+        "setup"
+      ]
+    },
+    {
+      "id": "task-002",
+      "title": "Backend Core Setup & Middlewares",
+      "description": "Initialize FastAPI, dependencies, JWT authentication, and structured logging.",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "medium",
+      "estimatedHours": 4,
+      "dependencies": [
+        "task-001"
+      ],
+      "prdReference": "Section 4.3 Backend Architecture",
+      "designReference": "Section 3. Backend Architecture & 10. Agent Checklist Phase 2",
+      "agentRuleReference": [
+        "Rule 2. SECRETS & SECURITY",
+        "Rule 4. PYTHON RULES"
+      ],
+      "architectureLayer": "backend",
+      "complianceImpact": true,
+      "securityImpact": true,
+      "performanceImpact": true,
+      "files": [
+        "backend/main.py",
+        "backend/app/core/exceptions.py",
+        "backend/app/schemas/predict.py",
+        "backend/app/core/dependencies.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 4,
+      "assignedTo": "AI",
+      "tags": [
+        "backend",
+        "security"
+      ]
+    },
+    {
+      "id": "task-003",
+      "title": "Vedic Computation Modules",
+      "description": "Implement Anurupyena Checksum and Nikhilam Threshold Calibrator with tests.",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "high",
+      "estimatedHours": 3,
+      "dependencies": [],
+      "prdReference": "Section 5. Vedic Mathematics Integration",
+      "designReference": "Section 5.2 Vedic Computation Modules & 10. Agent Checklist Phase 3",
+      "agentRuleReference": [
+        "Rule 10. TESTING RULES",
+        "Rule 4. PYTHON RULES"
+      ],
+      "architectureLayer": "backend",
+      "complianceImpact": false,
+      "securityImpact": false,
+      "performanceImpact": true,
+      "files": [
+        "backend/app/ml/vedic/anurupyena.py",
+        "backend/app/ml/vedic/nikhilam.py",
+        "backend/tests/test_vedic_anurupyena.py",
+        "backend/tests/test_vedic_nikhilam.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 3,
+      "assignedTo": "AI",
+      "tags": [
+        "backend",
+        "vedic",
+        "math"
+      ]
+    },
+    {
+      "id": "task-004",
+      "title": "Behavioral Feature Engine Implementation",
+      "description": "Implement the 9 behavioral indices (ADI, GRI, DTS, TRC, MRS, BFI, BDS, VRI, SGAS).",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "high",
+      "estimatedHours": 5,
+      "dependencies": [
+        "task-001"
+      ],
+      "prdReference": "Section 6. Behavioral Intelligence Engine",
+      "designReference": "Section 5.1 Behavioral Feature Engine & 10. Agent Checklist Phase 4",
+      "agentRuleReference": [
+        "Rule 10. TESTING RULES",
+        "Rule 13. HALLUCINATION PREVENTION"
+      ],
+      "architectureLayer": "backend",
+      "complianceImpact": true,
+      "securityImpact": true,
+      "performanceImpact": true,
+      "files": [
+        "backend/app/services/behavioral.py",
+        "backend/tests/test_behavioral_engine.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 5,
+      "assignedTo": "AI",
+      "tags": [
+        "backend",
+        "feature-engineering"
+      ]
+    },
+    {
+      "id": "task-005",
+      "title": "ML Pipeline & Training Script",
+      "description": "Develop the XGBoost and Isolation Forest training pipeline and export the model artifact.",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "medium",
+      "estimatedHours": 3,
+      "dependencies": [],
+      "prdReference": "Section 9. ML Model Strategy",
+      "designReference": "Section 5.5 Model Training Pipeline & 10. Agent Checklist Phase 5",
+      "agentRuleReference": [
+        "Rule 7. ML PIPELINE RULES"
+      ],
+      "architectureLayer": "ml",
+      "complianceImpact": true,
+      "securityImpact": false,
+      "performanceImpact": false,
+      "files": [
+        "ml-research/training/train.py",
+        "ml-research/artifacts/sentinel_ensemble.pkl"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 3,
+      "assignedTo": "AI",
+      "tags": [
+        "ml",
+        "training"
+      ]
+    },
+    {
+      "id": "task-006",
+      "title": "Inference Engine & Explainability (SHAP)",
+      "description": "Implement SentinelEnsemble to load ML models and SHAP Explainer for predictions.",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "high",
+      "estimatedHours": 4,
+      "dependencies": [
+        "task-005"
+      ],
+      "prdReference": "Section 7.3 Explainable AI Layer",
+      "designReference": "Section 5.3 Hybrid Sentinel Ensemble & 5.4 SHAP Explainer",
+      "agentRuleReference": [
+        "Rule 7. ML PIPELINE RULES"
+      ],
+      "architectureLayer": "ml",
+      "complianceImpact": true,
+      "securityImpact": false,
+      "performanceImpact": true,
+      "files": [
+        "backend/app/ml/models/sentinel_ensemble.py",
+        "backend/app/ml/explainer/shap_explainer.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 4,
+      "assignedTo": "AI",
+      "tags": [
+        "ml",
+        "backend",
+        "explainability"
+      ]
+    },
+    {
+      "id": "task-007",
+      "title": "Core Prediction Endpoints",
+      "description": "Implement the /api/v1/predict and /api/v1/bulk_predict endpoints including audit logging.",
+      "status": "in-progress",
+      "priority": "P0",
+      "complexity": "high",
+      "estimatedHours": 4,
+      "dependencies": [
+        "task-002",
+        "task-003",
+        "task-004",
+        "task-006"
+      ],
+      "prdReference": "Section 12. API Specification Core Endpoints",
+      "designReference": "Section 4.1 POST /predict & 4.2 POST /bulk_predict",
+      "agentRuleReference": [
+        "Rule 2.4 Audit Log Integrity",
+        "Rule 8. API RULES"
+      ],
+      "architectureLayer": "backend",
+      "complianceImpact": true,
+      "securityImpact": true,
+      "performanceImpact": true,
+      "files": [
+        "backend/app/api/v1/predict.py",
+        "backend/app/api/v1/bulk_predict.py",
+        "backend/app/services/fraud_scoring.py",
+        "backend/tests/test_predict_endpoint.py",
+        "backend/tests/test_audit_log.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 4,
+      "assignedTo": "AI",
+      "tags": [
+        "backend",
+        "api"
+      ]
+    },
+    {
+      "id": "task-008",
+      "title": "Simulation & WebSocket Endpoints",
+      "description": "Implement Attack Simulation (/simulate/attack) with streaming NDJSON and WebSocket real-time feed.",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "high",
+      "estimatedHours": 4,
+      "dependencies": [
+        "task-007"
+      ],
+      "prdReference": "Section 7.4 Attack Simulation Laboratory",
+      "designReference": "Section 4.3 POST /simulate/attack & 7.4 WebSocket Flow",
+      "agentRuleReference": [
+        "Rule 8. API RULES"
+      ],
+      "architectureLayer": "backend",
+      "complianceImpact": false,
+      "securityImpact": false,
+      "performanceImpact": true,
+      "files": [
+        "backend/app/api/v1/simulate.py",
+        "backend/app/api/v1/stream.py",
+        "backend/app/services/simulation.py",
+        "backend/tests/test_simulation.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 4,
+      "assignedTo": "AI",
+      "tags": [
+        "backend",
+        "api",
+        "websockets"
+      ]
+    },
+    {
+      "id": "task-009",
+      "title": "Audit, Metrics, & User Baseline Endpoints",
+      "description": "Implement the /audit/export (PDF), /metrics, and /users/{id}/baseline APIs.",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "medium",
+      "estimatedHours": 4,
+      "dependencies": [
+        "task-002",
+        "task-007"
+      ],
+      "prdReference": "Section 7.5 Government & Compliance Module",
+      "designReference": "Section 4.4 GET /audit/export, 4.5 GET /metrics, 4.6 GET /baseline",
+      "agentRuleReference": [
+        "Rule 8. API RULES"
+      ],
+      "architectureLayer": "backend",
+      "complianceImpact": true,
+      "securityImpact": true,
+      "performanceImpact": true,
+      "files": [
+        "backend/app/api/v1/audit.py",
+        "backend/app/api/v1/metrics.py",
+        "backend/app/api/v1/users.py",
+        "backend/app/services/compliance.py",
+        "backend/app/services/metrics.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 4,
+      "assignedTo": "AI",
+      "tags": [
+        "backend",
+        "api",
+        "compliance"
+      ]
+    },
+    {
+      "id": "task-010",
+      "title": "Frontend Foundation & Design System",
+      "description": "Initialize Next.js App Router, Tailwind design system, global components, and Zustand stores.",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "medium",
+      "estimatedHours": 3,
+      "dependencies": [],
+      "prdReference": "Section 4.2 Frontend Architecture",
+      "designReference": "Section 6.1 Design System & 6.5 Zustand Stores",
+      "agentRuleReference": [
+        "Rule 5. TYPESCRIPT / NEXT.JS RULES",
+        "Rule 9. FRONTEND RULES"
+      ],
+      "architectureLayer": "frontend",
+      "complianceImpact": false,
+      "securityImpact": false,
+      "performanceImpact": false,
+      "files": [
+        "frontend/tailwind.config.ts",
+        "frontend/components/ui/*.tsx",
+        "frontend/lib/stores/*.ts",
+        "frontend/lib/types/index.ts"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": null,
+      "assignedTo": "AI",
+      "tags": [
+        "frontend",
+        "setup",
+        "ui"
+      ]
+    },
+    {
+      "id": "task-011",
+      "title": "Frontend Dashboard & Visualizations",
+      "description": "Implement main dashboard page with FraudGauge, Recharts, and D3 FraudHeatmap.",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "high",
+      "estimatedHours": 5,
+      "dependencies": [
+        "task-010",
+        "task-009"
+      ],
+      "prdReference": "Section 7.2 Analytics Dashboard",
+      "designReference": "Section 6.3 Component Tree & 6.4 Key Component Specs (FraudGauge)",
+      "agentRuleReference": [
+        "Rule 9. FRONTEND RULES"
+      ],
+      "architectureLayer": "frontend",
+      "complianceImpact": false,
+      "securityImpact": false,
+      "performanceImpact": true,
+      "files": [
+        "frontend/app/dashboard/page.tsx",
+        "frontend/components/dashboard/*.tsx"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 3,
+      "assignedTo": "AI",
+      "tags": [
+        "frontend",
+        "ui",
+        "charts"
+      ]
+    },
+    {
+      "id": "task-012",
+      "title": "Frontend Live Transactions Feed",
+      "description": "Implement real-time transaction feed via WebSocket and single transaction detail view with SHAP waterfall.",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "high",
+      "estimatedHours": 4,
+      "dependencies": [
+        "task-010",
+        "task-008"
+      ],
+      "prdReference": "Section 7.2 Analytics Dashboard & 7.3 Explainable AI",
+      "designReference": "Section 6.4 TransactionFeed.tsx - WebSocket Integration",
+      "agentRuleReference": [
+        "Rule 9. FRONTEND RULES"
+      ],
+      "architectureLayer": "frontend",
+      "complianceImpact": true,
+      "securityImpact": false,
+      "performanceImpact": true,
+      "files": [
+        "frontend/app/transactions/page.tsx",
+        "frontend/app/transactions/[txn_id]/page.tsx",
+        "frontend/hooks/useFraudStream.ts",
+        "frontend/components/transactions/*.tsx"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 4,
+      "assignedTo": "AI",
+      "tags": [
+        "frontend",
+        "websockets",
+        "ui"
+      ]
+    },
+    {
+      "id": "task-013",
+      "title": "Frontend Attack Simulation Lab",
+      "description": "Build the simulation UI allowing users to trigger attack scenarios and view events streaming via NDJSON.",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "medium",
+      "estimatedHours": 3,
+      "dependencies": [
+        "task-010",
+        "task-008"
+      ],
+      "prdReference": "Section 7.4 Attack Simulation Laboratory",
+      "designReference": "Section 6.4 AttackTimeline.tsx - NDJSON Streaming",
+      "agentRuleReference": [
+        "Rule 9. FRONTEND RULES"
+      ],
+      "architectureLayer": "frontend",
+      "complianceImpact": false,
+      "securityImpact": false,
+      "performanceImpact": false,
+      "files": [
+        "frontend/app/attack-simulation/page.tsx",
+        "frontend/components/simulation/*.tsx"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 3,
+      "assignedTo": "AI",
+      "tags": [
+        "frontend",
+        "ui",
+        "simulation"
+      ]
+    },
+    {
+      "id": "task-014",
+      "title": "Frontend Compliance & Settings View",
+      "description": "Implement audit export interface (PDF download) and settings view (API keys, constraints).",
+      "status": "completed",
+      "priority": "P2",
+      "complexity": "medium",
+      "estimatedHours": 3,
+      "dependencies": [
+        "task-010",
+        "task-009"
+      ],
+      "prdReference": "Section 7.5 Government & Compliance Module",
+      "designReference": "Section 6.3 Component Tree",
+      "agentRuleReference": [
+        "Rule 9. FRONTEND RULES"
+      ],
+      "architectureLayer": "frontend",
+      "complianceImpact": true,
+      "securityImpact": false,
+      "performanceImpact": false,
+      "files": [
+        "frontend/app/compliance/page.tsx",
+        "frontend/app/settings/page.tsx",
+        "frontend/components/compliance/*.tsx"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 3,
+      "assignedTo": "AI",
+      "tags": [
+        "frontend",
+        "compliance",
+        "ui"
+      ]
+    },
+    {
+      "id": "task-015",
+      "title": "Integration, Deployment & Caching Optimization",
+      "description": "Setup docker-compose, implement APScheduler nightly baseline jobs, user baseline Redis caching, and final QA.",
+      "status": "completed",
+      "priority": "P2",
+      "complexity": "high",
+      "estimatedHours": 4,
+      "dependencies": [
+        "task-011",
+        "task-012",
+        "task-013",
+        "task-014"
+      ],
+      "prdReference": "Section 4.5 Infrastructure",
+      "designReference": "Section 8.1 Docker Compose & 7.5 Nightly Baseline Recalculation Flow",
+      "agentRuleReference": [
+        "Rule 3. TECHNOLOGY STACK - LOCKED"
+      ],
+      "architectureLayer": "infrastructure",
+      "complianceImpact": false,
+      "securityImpact": true,
+      "performanceImpact": true,
+      "files": [
+        "infra/docker-compose.yml",
+        "backend/app/services/user_baseline.py",
+        "backend/app/core/scheduler.py"
+      ],
+      "createdDate": "2026-02-22",
+      "completedDate": "2026-02-22",
+      "actualHours": 4,
+      "assignedTo": "AI",
+      "tags": [
+        "infrastructure",
+        "caching",
+        "deployment"
+      ]
+    }
+  ],
+  "statusCategories": {
+    "pending": "Not started",
+    "in-progress": "Currently working on",
+    "blocked": "Waiting on dependency or clarification",
+    "completed": "Finished and verified",
+    "cancelled": "No longer needed"
+  }
+}

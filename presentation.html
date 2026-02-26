@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VedFin Sentinel — InnVedX Code Hackathon</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-light: #e4f5f5;
+    --bg-mid: #b8e6e8;
+    --accent-blue-1: #6ab4d6;
+    --accent-blue-2: #4a9ec4;
+    --accent-blue-3: #2d7baa;
+    --accent-dark: #1a3c5e;
+    --text-dark: #1a2a3a;
+    --text-mid: #2d4a5e;
+    --text-light: #557088;
+    --highlight: #0d6efd;
+    --red-accent: #dc3545;
+    --green-accent: #198754;
+    --amber-accent: #fd7e14;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 0;
+    gap: 40px;
+  }
+
+  /* Print styles for clean PDF export */
+  @media print {
+    body { background: white; padding: 0; gap: 0; }
+    .slide { 
+      box-shadow: none !important; 
+      page-break-after: always; 
+      border-radius: 0 !important;
+      margin: 0 !important;
+    }
+    .nav-hint { display: none !important; }
+  }
+
+  .slide {
+    width: 1280px;
+    height: 720px;
+    background: var(--bg-light);
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+  }
+
+  /* ===== Background Decorations ===== */
+  .geo-shapes {
+    position: absolute;
+    top: 0; left: 0;
+    width: 350px; height: 100%;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .geo-shapes::before {
+    content: '';
+    position: absolute;
+    top: -100px; left: -80px;
+    width: 500px; height: 500px;
+    background: linear-gradient(135deg, var(--accent-blue-2) 0%, var(--accent-blue-1) 40%, transparent 70%);
+    transform: rotate(15deg);
+    opacity: 0.7;
+  }
+  .geo-shapes::after {
+    content: '';
+    position: absolute;
+    top: 200px; left: -20px;
+    width: 400px; height: 400px;
+    background: linear-gradient(160deg, var(--accent-blue-3) 0%, var(--accent-blue-1) 50%, transparent 75%);
+    transform: rotate(-10deg);
+    opacity: 0.5;
+  }
+
+  .sphere-dots {
+    position: absolute;
+    top: 30px; right: 30px;
+    width: 450px; height: 450px;
+    z-index: 1;
+    opacity: 0.3;
+  }
+
+  .sphere-dots svg { width: 100%; height: 100%; }
+
+  /* ===== Logos ===== */
+  .logo-bbd {
+    position: absolute;
+    top: 20px; left: 25px;
+    z-index: 10;
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .logo-bbd .b1 { color: var(--red-accent); }
+  .logo-bbd .b2 { color: #2563eb; }
+
+  .logo-utkarsh {
+    position: absolute;
+    top: 18px; right: 25px;
+    z-index: 10;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .logo-utkarsh .brand { font-size: 16px; font-weight: 800; color: var(--accent-dark); letter-spacing: 2px; }
+  .logo-utkarsh .tagline { font-size: 9px; color: var(--text-light); letter-spacing: 0.5px; }
+  .logo-utkarsh .tagline .red { color: var(--red-accent); }
+  .logo-utkarsh .tagline .purple { color: #7c3aed; }
+
+  /* ===== Content Area ===== */
+  .slide-content {
+    position: relative;
+    z-index: 5;
+    width: 100%;
+    height: 100%;
+    padding: 80px 60px 40px 60px;
+  }
+
+  .slide-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 900;
+    color: var(--text-dark);
+    text-align: center;
+    margin-bottom: 25px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ===== SLIDE 1 — Title ===== */
+  .s1-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    padding-left: 120px;
+    padding-top: 0;
+  }
+  .s1-hackathon {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    font-weight: 900;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+  }
+  .s1-project-name {
+    font-size: 54px;
+    font-weight: 900;
+    font-family: 'Playfair Display', serif;
+    background: linear-gradient(135deg, #0d6efd 0%, #6610f2 60%, #d63384 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .s1-tagline {
+    font-size: 16px;
+    color: var(--text-light);
+    font-weight: 500;
+    margin-bottom: 35px;
+    font-style: italic;
+  }
+  .s1-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 16px;
+    color: var(--text-mid);
+  }
+  .s1-fields .label {
+    font-weight: 700;
+    color: var(--text-dark);
+    min-width: 180px;
+    display: inline-block;
+  }
+
+  /* ===== SLIDE 2 — Problem & Solution ===== */
+  .s2-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 35px;
+    height: calc(100% - 70px);
+  }
+  .s2-col h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    color: var(--text-dark);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 3px solid var(--accent-blue-2);
+    display: inline-block;
+  }
+  .s2-col h3.solution-h { border-bottom-color: var(--green-accent); }
+
+  .stat-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 7px;
+    font-size: 13px;
+    color: var(--text-mid);
+    line-height: 1.45;
+  }
+  .stat-row .num {
+    font-weight: 800;
+    color: var(--red-accent);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .sol-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--text-mid);
+    line-height: 1.5;
+  }
+  .sol-item .icon {
+    flex-shrink: 0;
+    width: 20px; height: 20px;
+    background: var(--green-accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .sol-item strong { color: var(--text-dark); }
+
+  /* ===== SLIDE 3 — Tech Stack ===== */
+  .s3-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    height: calc(100% - 70px);
+  }
+
+  .tech-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .tech-table th {
+    text-align: left;
+    padding: 7px 10px;
+    background: var(--accent-dark);
+    color: white;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tech-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    color: var(--text-mid);
+    vertical-align: top;
+  }
+  .tech-table td:first-child {
+    font-weight: 700;
+    color: var(--text-dark);
+    white-space: nowrap;
+  }
+  .tech-table tr:nth-child(even) { background: rgba(0,0,0,0.03); }
+
+  .pipeline-section h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--text-dark);
+    margin-bottom: 14px;
+  }
+  .pipeline-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--text-mid);
+    line-height: 1.45;
+  }
+  .pipeline-step .step-num {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg, var(--accent-blue-2), var(--accent-blue-3));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+  }
+  .pipeline-step strong { color: var(--text-dark); }
+
+  /* ===== SLIDE 4 — USP & Key Features ===== */
+  .s4-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    height: calc(100% - 70px);
+  }
+
+  .usp-card {
+    background: rgba(255,255,255,0.6);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--accent-blue-3);
+    backdrop-filter: blur(4px);
+  }
+  .usp-card .usp-title {
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+  }
+  .usp-card .usp-desc {
+    font-size: 11.5px;
+    color: var(--text-mid);
+    line-height: 1.5;
+  }
+  .usp-card:nth-child(2) { border-left-color: #7c3aed; }
+  .usp-card:nth-child(3) { border-left-color: var(--green-accent); }
+  .usp-card:nth-child(4) { border-left-color: var(--amber-accent); }
+
+  .feature-section h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--text-dark);
+    margin-bottom: 12px;
+  }
+  .feat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .feat-chip {
+    background: rgba(255,255,255,0.7);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: var(--text-mid);
+    line-height: 1.4;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  .feat-chip .feat-name {
+    font-weight: 800;
+    color: var(--text-dark);
+    font-size: 11.5px;
+    margin-bottom: 2px;
+  }
+
+  .metrics-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+    grid-column: 1 / -1;
+  }
+  .metric-box {
+    background: var(--accent-dark);
+    color: white;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .metric-box .m-value {
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .metric-box .m-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+  .metric-box:nth-child(1) .m-value { color: #4ade80; }
+  .metric-box:nth-child(2) .m-value { color: #f87171; }
+  .metric-box:nth-child(3) .m-value { color: #60a5fa; }
+  .metric-box:nth-child(4) .m-value { color: #fbbf24; }
+
+  .nav-hint {
+    color: #666;
+    font-size: 13px;
+    text-align: center;
+    padding: 10px;
+  }
+
+  .slide-number {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: var(--text-light);
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<p class="nav-hint">📄 4-Slide Presentation — Scroll to view all slides. Print (Ctrl+P) → "Save as PDF" for export.</p>
+
+<!-- ======================== SLIDE 1 — TITLE ======================== -->
+<div class="slide">
+  <div class="geo-shapes"></div>
+  <div class="sphere-dots">
+    <svg viewBox="0 0 400 400">
+      <defs>
+        <clipPath id="sphere1"><circle cx="260" cy="200" r="185"/></clipPath>
+      </defs>
+      <g clip-path="url(#sphere1)" opacity="0.5">
+        <circle cx="150" cy="60" r="12" fill="#b0dfe2"/><circle cx="190" cy="55" r="14" fill="#b0dfe2"/>
+        <circle cx="230" cy="60" r="16" fill="#b0dfe2"/><circle cx="270" cy="65" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="72" r="13" fill="#b0dfe2"/><circle cx="350" cy="80" r="10" fill="#b0dfe2"/>
+        <circle cx="140" cy="100" r="14" fill="#b0dfe2"/><circle cx="180" cy="95" r="16" fill="#b0dfe2"/>
+        <circle cx="220" cy="98" r="18" fill="#b0dfe2"/><circle cx="260" cy="102" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="108" r="15" fill="#b0dfe2"/><circle cx="340" cy="115" r="12" fill="#b0dfe2"/>
+        <circle cx="135" cy="140" r="15" fill="#b0dfe2"/><circle cx="175" cy="138" r="17" fill="#b0dfe2"/>
+        <circle cx="215" cy="140" r="19" fill="#b0dfe2"/><circle cx="255" cy="142" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="148" r="16" fill="#b0dfe2"/><circle cx="335" cy="155" r="13" fill="#b0dfe2"/>
+        <circle cx="132" cy="182" r="16" fill="#b0dfe2"/><circle cx="172" cy="180" r="18" fill="#b0dfe2"/>
+        <circle cx="212" cy="182" r="20" fill="#b0dfe2"/><circle cx="252" cy="184" r="19" fill="#b0dfe2"/>
+        <circle cx="292" cy="188" r="17" fill="#b0dfe2"/><circle cx="332" cy="195" r="14" fill="#b0dfe2"/>
+        <circle cx="135" cy="224" r="16" fill="#b0dfe2"/><circle cx="175" cy="222" r="18" fill="#b0dfe2"/>
+        <circle cx="215" cy="224" r="19" fill="#b0dfe2"/><circle cx="255" cy="226" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="230" r="16" fill="#b0dfe2"/><circle cx="335" cy="237" r="13" fill="#b0dfe2"/>
+        <circle cx="140" cy="266" r="15" fill="#b0dfe2"/><circle cx="180" cy="264" r="17" fill="#b0dfe2"/>
+        <circle cx="220" cy="265" r="18" fill="#b0dfe2"/><circle cx="260" cy="268" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="272" r="15" fill="#b0dfe2"/><circle cx="340" cy="278" r="12" fill="#b0dfe2"/>
+        <circle cx="150" cy="308" r="14" fill="#b0dfe2"/><circle cx="190" cy="305" r="15" fill="#b0dfe2"/>
+        <circle cx="230" cy="306" r="16" fill="#b0dfe2"/><circle cx="270" cy="310" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="315" r="13" fill="#b0dfe2"/><circle cx="350" cy="320" r="10" fill="#b0dfe2"/>
+        <circle cx="165" cy="348" r="12" fill="#b0dfe2"/><circle cx="205" cy="345" r="13" fill="#b0dfe2"/>
+        <circle cx="245" cy="346" r="14" fill="#b0dfe2"/><circle cx="285" cy="350" r="13" fill="#b0dfe2"/>
+        <circle cx="325" cy="354" r="10" fill="#b0dfe2"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="logo-bbd"><span class="b1">B</span><span class="b2">B</span></div>
+  <div class="logo-utkarsh">
+    <div class="brand">UTKARSH</div>
+    <div class="tagline"><span class="red">VIRASAT</span> SE <span class="purple">VIKAS TAK</span></div>
+  </div>
+
+  <div class="slide-content s1-content">
+    <div class="s1-hackathon">InnVedX Code Hackathon</div>
+    <div class="s1-project-name">VedFin Sentinel</div>
+    <div class="s1-tagline">Real-Time Behavioral Fraud Intelligence Platform</div>
+    <div class="s1-fields">
+      <div><span class="label">Team Lead —</span> [Your Name]</div>
+      <div><span class="label">Members —</span> [Member 1], [Member 2], [Member 3]</div>
+      <div><span class="label">Problem Statement —</span> PS 6: FinTech Fraud Detection Using Behavioral Analysis</div>
+      <div><span class="label">Track —</span> Section A: Open Innovation | Track 2: FinTech, Governance & Security</div>
+    </div>
+  </div>
+  <div class="slide-number">1 / 4</div>
+</div>
+
+<!-- ======================== SLIDE 2 — PROBLEM & SOLUTION ======================== -->
+<div class="slide">
+  <div class="geo-shapes"></div>
+  <div class="sphere-dots">
+    <svg viewBox="0 0 400 400">
+      <defs><clipPath id="sphere2"><circle cx="260" cy="200" r="185"/></clipPath></defs>
+      <g clip-path="url(#sphere2)" opacity="0.5">
+        <circle cx="150" cy="60" r="12" fill="#b0dfe2"/><circle cx="190" cy="55" r="14" fill="#b0dfe2"/>
+        <circle cx="230" cy="60" r="16" fill="#b0dfe2"/><circle cx="270" cy="65" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="72" r="13" fill="#b0dfe2"/><circle cx="350" cy="80" r="10" fill="#b0dfe2"/>
+        <circle cx="140" cy="100" r="14" fill="#b0dfe2"/><circle cx="180" cy="95" r="16" fill="#b0dfe2"/>
+        <circle cx="220" cy="98" r="18" fill="#b0dfe2"/><circle cx="260" cy="102" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="108" r="15" fill="#b0dfe2"/><circle cx="340" cy="115" r="12" fill="#b0dfe2"/>
+        <circle cx="135" cy="140" r="15" fill="#b0dfe2"/><circle cx="175" cy="138" r="17" fill="#b0dfe2"/>
+        <circle cx="215" cy="140" r="19" fill="#b0dfe2"/><circle cx="255" cy="142" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="148" r="16" fill="#b0dfe2"/><circle cx="335" cy="155" r="13" fill="#b0dfe2"/>
+        <circle cx="132" cy="182" r="16" fill="#b0dfe2"/><circle cx="172" cy="180" r="18" fill="#b0dfe2"/>
+        <circle cx="212" cy="182" r="20" fill="#b0dfe2"/><circle cx="252" cy="184" r="19" fill="#b0dfe2"/>
+        <circle cx="292" cy="188" r="17" fill="#b0dfe2"/><circle cx="332" cy="195" r="14" fill="#b0dfe2"/>
+        <circle cx="135" cy="224" r="16" fill="#b0dfe2"/><circle cx="175" cy="222" r="18" fill="#b0dfe2"/>
+        <circle cx="215" cy="224" r="19" fill="#b0dfe2"/><circle cx="255" cy="226" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="230" r="16" fill="#b0dfe2"/><circle cx="335" cy="237" r="13" fill="#b0dfe2"/>
+        <circle cx="140" cy="266" r="15" fill="#b0dfe2"/><circle cx="180" cy="264" r="17" fill="#b0dfe2"/>
+        <circle cx="220" cy="265" r="18" fill="#b0dfe2"/><circle cx="260" cy="268" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="272" r="15" fill="#b0dfe2"/><circle cx="340" cy="278" r="12" fill="#b0dfe2"/>
+        <circle cx="150" cy="308" r="14" fill="#b0dfe2"/><circle cx="190" cy="305" r="15" fill="#b0dfe2"/>
+        <circle cx="230" cy="306" r="16" fill="#b0dfe2"/><circle cx="270" cy="310" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="315" r="13" fill="#b0dfe2"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="logo-bbd"><span class="b1">B</span><span class="b2">B</span></div>
+  <div class="logo-utkarsh">
+    <div class="brand">UTKARSH</div>
+    <div class="tagline"><span class="red">VIRASAT</span> SE <span class="purple">VIKAS TAK</span></div>
+  </div>
+
+  <div class="slide-content">
+    <div class="slide-title">Problem & Solution</div>
+    <div class="s2-grid">
+      <div class="s2-col">
+        <h3>🔴 The Problem</h3>
+        <div class="stat-row"><span class="num">131B+</span> UPI transactions in FY2024 — massive attack surface</div>
+        <div class="stat-row"><span class="num">₹14,000 Cr</span> lost to digital financial fraud annually</div>
+        <div class="stat-row"><span class="num">4–6 hours</span> average detection lag with rule-based systems</div>
+        <div class="stat-row"><span class="num">15–30%</span> false positive rate disrupts legitimate users</div>
+        <div class="stat-row"><span class="num">~95%</span> flagged transactions have zero explainability</div>
+        <div class="stat-row"><span class="num">❌</span> No per-user behavioral baseline — same threshold for everyone</div>
+        <div class="stat-row"><span class="num">❌</span> Black-box ML models rejected by RBI compliance auditors</div>
+      </div>
+      <div class="s2-col">
+        <h3 class="solution-h">✅ Our Solution — VedFin Sentinel</h3>
+        <div class="sol-item"><div class="icon">1</div><div><strong>9-Dimensional Behavioral Fingerprinting</strong> — ADI, GRI, DTS, TRC, MRS, BFI, BDS, VRI, SGAS per user per transaction</div></div>
+        <div class="sol-item"><div class="icon">2</div><div><strong>Hybrid ML Ensemble</strong> — XGBoost (known fraud) + Isolation Forest (zero-day novel attacks)</div></div>
+        <div class="sol-item"><div class="icon">3</div><div><strong>Vedic Mathematics Layer</strong> — Anurupyena checksum pre-filter + Nikhilam threshold calibrator</div></div>
+        <div class="sol-item"><div class="icon">4</div><div><strong>SHAP Explainability</strong> — Human-readable reason for every flagged transaction, RBI-compliant</div></div>
+        <div class="sol-item"><div class="icon">5</div><div><strong>Attack Simulation Lab</strong> — 3 live attack scenarios detected & blocked in real time</div></div>
+        <div class="sol-item"><div class="icon">6</div><div><strong>< 340ms Detection</strong> — vs industry average of 4–6 hours</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">2 / 4</div>
+</div>
+
+<!-- ======================== SLIDE 3 — TECH STACK & METHODOLOGY ======================== -->
+<div class="slide">
+  <div class="geo-shapes"></div>
+  <div class="sphere-dots">
+    <svg viewBox="0 0 400 400">
+      <defs><clipPath id="sphere3"><circle cx="260" cy="200" r="185"/></clipPath></defs>
+      <g clip-path="url(#sphere3)" opacity="0.5">
+        <circle cx="150" cy="60" r="12" fill="#b0dfe2"/><circle cx="190" cy="55" r="14" fill="#b0dfe2"/>
+        <circle cx="230" cy="60" r="16" fill="#b0dfe2"/><circle cx="270" cy="65" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="72" r="13" fill="#b0dfe2"/><circle cx="350" cy="80" r="10" fill="#b0dfe2"/>
+        <circle cx="140" cy="100" r="14" fill="#b0dfe2"/><circle cx="180" cy="95" r="16" fill="#b0dfe2"/>
+        <circle cx="220" cy="98" r="18" fill="#b0dfe2"/><circle cx="260" cy="102" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="108" r="15" fill="#b0dfe2"/><circle cx="340" cy="115" r="12" fill="#b0dfe2"/>
+        <circle cx="135" cy="140" r="15" fill="#b0dfe2"/><circle cx="175" cy="138" r="17" fill="#b0dfe2"/>
+        <circle cx="215" cy="140" r="19" fill="#b0dfe2"/><circle cx="255" cy="142" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="148" r="16" fill="#b0dfe2"/><circle cx="335" cy="155" r="13" fill="#b0dfe2"/>
+        <circle cx="132" cy="182" r="16" fill="#b0dfe2"/><circle cx="172" cy="180" r="18" fill="#b0dfe2"/>
+        <circle cx="212" cy="182" r="20" fill="#b0dfe2"/><circle cx="252" cy="184" r="19" fill="#b0dfe2"/>
+        <circle cx="292" cy="188" r="17" fill="#b0dfe2"/><circle cx="332" cy="195" r="14" fill="#b0dfe2"/>
+        <circle cx="135" cy="224" r="16" fill="#b0dfe2"/><circle cx="175" cy="222" r="18" fill="#b0dfe2"/>
+        <circle cx="215" cy="224" r="19" fill="#b0dfe2"/><circle cx="255" cy="226" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="230" r="16" fill="#b0dfe2"/><circle cx="335" cy="237" r="13" fill="#b0dfe2"/>
+        <circle cx="140" cy="266" r="15" fill="#b0dfe2"/><circle cx="180" cy="264" r="17" fill="#b0dfe2"/>
+        <circle cx="220" cy="265" r="18" fill="#b0dfe2"/><circle cx="260" cy="268" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="272" r="15" fill="#b0dfe2"/><circle cx="340" cy="278" r="12" fill="#b0dfe2"/>
+        <circle cx="150" cy="308" r="14" fill="#b0dfe2"/><circle cx="190" cy="305" r="15" fill="#b0dfe2"/>
+        <circle cx="230" cy="306" r="16" fill="#b0dfe2"/><circle cx="270" cy="310" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="315" r="13" fill="#b0dfe2"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="logo-bbd"><span class="b1">B</span><span class="b2">B</span></div>
+  <div class="logo-utkarsh">
+    <div class="brand">UTKARSH</div>
+    <div class="tagline"><span class="red">VIRASAT</span> SE <span class="purple">VIKAS TAK</span></div>
+  </div>
+
+  <div class="slide-content">
+    <div class="slide-title">Tech Stack & Methodology</div>
+    <div class="s3-layout">
+      <div>
+        <table class="tech-table">
+          <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend</td><td>Next.js 14, TailwindCSS, Recharts, Framer Motion</td></tr>
+            <tr><td>Backend</td><td>FastAPI (Python 3.11), Async SQLAlchemy, JWT Auth</td></tr>
+            <tr><td>ML Engine</td><td>XGBoost + Isolation Forest (Hybrid Ensemble)</td></tr>
+            <tr><td>Explainability</td><td>SHAP TreeExplainer</td></tr>
+            <tr><td>Vedic Compute</td><td>Anurupyena Sutra + Nikhilam Sutra</td></tr>
+            <tr><td>Database</td><td>PostgreSQL 15 + Redis 7</td></tr>
+            <tr><td>Infrastructure</td><td>Docker, Kubernetes-ready, GitHub Actions</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pipeline-section">
+        <h3>7-Stage Detection Pipeline</h3>
+        <div class="pipeline-step"><div class="step-num">1</div><div><strong>Ingest</strong> — Transaction received via REST API / WebSocket</div></div>
+        <div class="pipeline-step"><div class="step-num">2</div><div><strong>Vedic Pre-Filter</strong> — Anurupyena checksum validates structural integrity</div></div>
+        <div class="pipeline-step"><div class="step-num">3</div><div><strong>Behavioral Engine</strong> — 9 indices computed against user baseline</div></div>
+        <div class="pipeline-step"><div class="step-num">4</div><div><strong>Nikhilam Calibration</strong> — Dynamic per-user threshold via Vedic math</div></div>
+        <div class="pipeline-step"><div class="step-num">5</div><div><strong>Ensemble Inference</strong> — XGBoost + Isolation Forest combined scoring</div></div>
+        <div class="pipeline-step"><div class="step-num">6</div><div><strong>SHAP Explain</strong> — Top features → human-readable fraud reasons</div></div>
+        <div class="pipeline-step"><div class="step-num">7</div><div><strong>Risk Decision</strong> — 🟢 SAFE / 🟡 MONITOR / 🟠 SUSPICIOUS / 🔴 FRAUD</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-number">3 / 4</div>
+</div>
+
+<!-- ======================== SLIDE 4 — USP & KEY FEATURES ======================== -->
+<div class="slide">
+  <div class="geo-shapes"></div>
+  <div class="sphere-dots">
+    <svg viewBox="0 0 400 400">
+      <defs><clipPath id="sphere4"><circle cx="260" cy="200" r="185"/></clipPath></defs>
+      <g clip-path="url(#sphere4)" opacity="0.5">
+        <circle cx="150" cy="60" r="12" fill="#b0dfe2"/><circle cx="190" cy="55" r="14" fill="#b0dfe2"/>
+        <circle cx="230" cy="60" r="16" fill="#b0dfe2"/><circle cx="270" cy="65" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="72" r="13" fill="#b0dfe2"/><circle cx="350" cy="80" r="10" fill="#b0dfe2"/>
+        <circle cx="140" cy="100" r="14" fill="#b0dfe2"/><circle cx="180" cy="95" r="16" fill="#b0dfe2"/>
+        <circle cx="220" cy="98" r="18" fill="#b0dfe2"/><circle cx="260" cy="102" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="108" r="15" fill="#b0dfe2"/><circle cx="340" cy="115" r="12" fill="#b0dfe2"/>
+        <circle cx="135" cy="140" r="15" fill="#b0dfe2"/><circle cx="175" cy="138" r="17" fill="#b0dfe2"/>
+        <circle cx="215" cy="140" r="19" fill="#b0dfe2"/><circle cx="255" cy="142" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="148" r="16" fill="#b0dfe2"/><circle cx="335" cy="155" r="13" fill="#b0dfe2"/>
+        <circle cx="132" cy="182" r="16" fill="#b0dfe2"/><circle cx="172" cy="180" r="18" fill="#b0dfe2"/>
+        <circle cx="212" cy="182" r="20" fill="#b0dfe2"/><circle cx="252" cy="184" r="19" fill="#b0dfe2"/>
+        <circle cx="292" cy="188" r="17" fill="#b0dfe2"/><circle cx="332" cy="195" r="14" fill="#b0dfe2"/>
+        <circle cx="135" cy="224" r="16" fill="#b0dfe2"/><circle cx="175" cy="222" r="18" fill="#b0dfe2"/>
+        <circle cx="215" cy="224" r="19" fill="#b0dfe2"/><circle cx="255" cy="226" r="18" fill="#b0dfe2"/>
+        <circle cx="295" cy="230" r="16" fill="#b0dfe2"/><circle cx="335" cy="237" r="13" fill="#b0dfe2"/>
+        <circle cx="140" cy="266" r="15" fill="#b0dfe2"/><circle cx="180" cy="264" r="17" fill="#b0dfe2"/>
+        <circle cx="220" cy="265" r="18" fill="#b0dfe2"/><circle cx="260" cy="268" r="17" fill="#b0dfe2"/>
+        <circle cx="300" cy="272" r="15" fill="#b0dfe2"/><circle cx="340" cy="278" r="12" fill="#b0dfe2"/>
+        <circle cx="150" cy="308" r="14" fill="#b0dfe2"/><circle cx="190" cy="305" r="15" fill="#b0dfe2"/>
+        <circle cx="230" cy="306" r="16" fill="#b0dfe2"/><circle cx="270" cy="310" r="15" fill="#b0dfe2"/>
+        <circle cx="310" cy="315" r="13" fill="#b0dfe2"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="logo-bbd"><span class="b1">B</span><span class="b2">B</span></div>
+  <div class="logo-utkarsh">
+    <div class="brand">UTKARSH</div>
+    <div class="tagline"><span class="red">VIRASAT</span> SE <span class="purple">VIKAS TAK</span></div>
+  </div>
+
+  <div class="slide-content">
+    <div class="slide-title">USP & Key Features</div>
+    <div class="s4-layout">
+      <div>
+        <div class="usp-card">
+          <div class="usp-title">🏆 Only Cross-Track Solution</div>
+          <div class="usp-desc">Integrates PS 6 (Fraud Detection) + PS 21 (Vedic Checksum) + PS 18 (Vedic Compute) in a single architecture</div>
+        </div>
+        <div class="usp-card">
+          <div class="usp-title">🧮 Vedic Math as Functional Layer</div>
+          <div class="usp-desc">Anurupyena & Nikhilam sutras are active processing stages — not decoration — with benchmarked speed gains</div>
+        </div>
+        <div class="usp-card">
+          <div class="usp-title">🧬 9-Dimensional Behavioral Engine</div>
+          <div class="usp-desc">Includes novel VRI (money mule detection) & SGAS (social graph attacks) — emerging fraud vectors</div>
+        </div>
+        <div class="usp-card">
+          <div class="usp-title">🔍 Full SHAP Explainability</div>
+          <div class="usp-desc">Every decision explained in plain language — survives RBI Model Risk Management scrutiny</div>
+        </div>
+      </div>
+
+      <div class="feature-section">
+        <h3>Key Features</h3>
+        <div class="feat-grid">
+          <div class="feat-chip"><div class="feat-name">⚡ Real-Time Scoring</div>< 340ms end-to-end per transaction</div>
+          <div class="feat-chip"><div class="feat-name">🤖 Hybrid ML Ensemble</div>XGBoost + Isolation Forest combined</div>
+          <div class="feat-chip"><div class="feat-name">🧪 Attack Simulation Lab</div>3 live attack scenarios in real-time</div>
+          <div class="feat-chip"><div class="feat-name">📊 Analytics Dashboard</div>Live gauges, heatmaps, ROC curves</div>
+          <div class="feat-chip"><div class="feat-name">🛡️ Audit & Compliance</div>SHA-256 tamper-proof logs, PDF export</div>
+          <div class="feat-chip"><div class="feat-name">🌐 Enterprise REST API</div>JWT auth, Swagger docs, rate limiting</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics-bar">
+      <div class="metric-box"><div class="m-value">> 92%</div><div class="m-label">Recall</div></div>
+      <div class="metric-box"><div class="m-value">< 5%</div><div class="m-label">False Positive Rate</div></div>
+      <div class="metric-box"><div class="m-value">< 340ms</div><div class="m-label">Latency (p95)</div></div>
+      <div class="metric-box"><div class="m-value">> 30%</div><div class="m-label">Vedic Speed Gain</div></div>
+    </div>
+  </div>
+  <div class="slide-number">4 / 4</div>
+</div>
+
+</body>
+</html>

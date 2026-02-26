@@ -1,0 +1,8 @@
+.env
+.env.local
+__pycache__
+*.pyc
+node_modules
+.next
+ml-research/artifacts/*.pkl
+ml-research/data/
