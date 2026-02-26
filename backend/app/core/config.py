@@ -1,7 +1,7 @@
 import os
 import secrets
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, model_validator
 from typing import ClassVar, List
 
 class Settings(BaseSettings):
@@ -23,9 +23,16 @@ class Settings(BaseSettings):
     SHAP_BACKGROUND_SAMPLES: int = 100
     VEDIC_BENCHMARK_ENABLED: bool = True
     
-    # Ensemble configuration
-    ENSEMBLE_XGB_WEIGHT: float = 0.7
-    ENSEMBLE_ISO_WEIGHT: float = 0.3
+    # Ensemble configuration — weights must sum to 1.0
+    ENSEMBLE_XGB_WEIGHT: float = Field(default=0.7, ge=0.0, le=1.0)
+    ENSEMBLE_ISO_WEIGHT: float = Field(default=0.3, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_ensemble_weights(self):
+        total = self.ENSEMBLE_XGB_WEIGHT + self.ENSEMBLE_ISO_WEIGHT
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(f"Ensemble weights must sum to 1.0, got {total}")
+        return self
     
     # CORS — configurable via environment
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
