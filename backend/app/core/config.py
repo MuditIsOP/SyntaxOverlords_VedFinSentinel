@@ -1,15 +1,16 @@
 import os
+import secrets
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
-from typing import ClassVar
+from typing import ClassVar, List
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "VedFin Sentinel"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
-    # Security
-    SECRET_KEY: str = Field(default="", description="Generate with: openssl rand -hex 32")
+    # Security — SECRET_KEY auto-generates if not set; set via env in production
+    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_hex(32))
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
@@ -22,8 +23,19 @@ class Settings(BaseSettings):
     SHAP_BACKGROUND_SAMPLES: int = 100
     VEDIC_BENCHMARK_ENABLED: bool = True
     
+    # Ensemble configuration
+    ENSEMBLE_XGB_WEIGHT: float = 0.7
+    ENSEMBLE_ISO_WEIGHT: float = 0.3
+    
+    # CORS — configurable via environment
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    
     # Logging
     LOG_LEVEL: str = "INFO"
+
+    @property
+    def cors_origin_list(self) -> List[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_file=[".env", ".env.local"], 

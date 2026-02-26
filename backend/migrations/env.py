@@ -18,6 +18,13 @@ import app.models.risk_audit_log
 # access to the values within the .ini file in use.
 config = context.config
 
+# Override sqlalchemy.url from environment variable if available
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    # Alembic requires synchronous driver; convert asyncpg -> psycopg2
+    sync_url = database_url.replace("+asyncpg", "+psycopg2")
+    config.set_main_option("sqlalchemy.url", sync_url)
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:

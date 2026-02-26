@@ -15,8 +15,8 @@ async def simulate_attack(
     request: Request,
     db: AsyncSession = Depends(get_db_session),
     attack_type: AttackScenarioEnum = Query(..., description="Type of attack payload"),
-    count: int = Query(10, description="Volume to generate (e.g. 1000)"),
-    rate_limit_ms: int = Query(50, description="Delay between emissions"),
+    count: int = Query(10, ge=1, le=1000, description="Volume to generate (max 1000)"),
+    rate_limit_ms: int = Query(50, ge=10, le=5000, description="Delay between emissions (ms)"),
 ):
     """
     Simulates high-velocity traffic pumping into the backend API.
