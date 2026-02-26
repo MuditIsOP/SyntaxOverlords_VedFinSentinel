@@ -46,18 +46,18 @@
 
 ## 🎯 What We Built
 
-VedFin Sentinel is a **production-grade fraud detection platform** that addresses all critical flaws identified in judge review:
+VedFin Sentinel is a **production-grade fraud detection platform** with the following key features:
 
-### ✅ Judge Requirements → Our Implementation
+### Core Capabilities
 
-| Judge Issue | Our Fix | Status |
-|-------------|---------|--------|
-| Vedic math gimmick | **HMAC-SHA256 cryptographic integrity** | ✅ Fixed |
-| Train↔inference skew | **Removed card*/V* features, only runtime-computable** | ✅ Fixed |
-| Behavioral heuristics | **Learned neural network embeddings (LSTM)** | ✅ Fixed |
-| Async queue only | **Real Kafka streaming + demo fallback** | ✅ Fixed |
-| No model artifact | **XGBoost + Isolation Forest ensemble** | ✅ Fixed |
-| Bogus metrics | **Live precision/recall from database** | ✅ Fixed |
+| Feature | Implementation | Status |
+|---------|---------------|--------|
+| Cryptographic Integrity | **HMAC-SHA256** with constant-time verification | ✅ |
+| Train-Serve Alignment | **Runtime-computable features only** (no train skew) | ✅ |
+| Behavioral Analysis | **Learned neural network embeddings** (not heuristics) | ✅ |
+| Real-Time Streaming | **Apache Kafka** with async queue fallback | ✅ |
+| ML Model | **XGBoost + Isolation Forest** ensemble | ✅ |
+| Live Metrics | **Precision/Recall** computed from actual predictions | ✅ |
 
 ---
 
@@ -398,7 +398,6 @@ MIT License - InnVedX Code Hackathon 2026
 
 - **IEEE-CIS Fraud Detection Dataset** (Kaggle) for training data
 - **BBD University** for hosting InnVedX Code Hackathon
-- **Judge Feedback** for critical improvements
 
 ---
 
