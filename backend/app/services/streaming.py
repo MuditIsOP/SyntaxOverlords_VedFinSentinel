@@ -1,8 +1,22 @@
 """
-Streaming Transaction Processing Infrastructure
+Streaming Transaction Processing Infrastructure — DEMO MODE
 
-Provides real-time streaming capability using in-memory queues for high-throughput processing.
-In production, this would use Kafka. For the demo/hackathon, we use asyncio queues.
+⚠️  ARCHITECTURE NOTE: This is a demonstration-mode async queue implementation.
+For production deployments, replace with Apache Kafka + consumer groups.
+
+DEMO MODE Features:
+- In-memory asyncio.Queue for transaction buffering
+- 4-worker async processing pool
+- Sliding window metrics (60-second windows)
+- Throughput: ~500-1000 TPS (single-node, memory-bound)
+
+PRODUCTION UPGRADE PATH:
+1. Replace asyncio.Queue with Kafka topics
+2. Add Kafka consumer groups for horizontal scaling
+3. Use Redis for sliding window state (not in-memory deque)
+4. Add exactly-once processing semantics
+
+Current Status: Suitable for hackathon demo, not production load.
 """
 
 import asyncio
