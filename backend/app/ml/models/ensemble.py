@@ -134,9 +134,10 @@ class SentinelEnsemble:
             
             iso_score = max(0.0, min(1.0, iso_score))
 
-            # FIXED: Proper ensemble combination (70% XGBoost, 30% Isolation Forest)
-            # XGBoost is more reliable for known patterns, IF catches novel anomalies
-            ensemble_score = (0.7 * xgb_prob) + (0.3 * iso_score)
+            # Configurable ensemble combination weights
+            xgb_weight = settings.ENSEMBLE_XGB_WEIGHT
+            iso_weight = settings.ENSEMBLE_ISO_WEIGHT
+            ensemble_score = (xgb_weight * xgb_prob) + (iso_weight * iso_score)
             ensemble_score = max(0.0, min(1.0, ensemble_score))
 
             return ensemble_score, xgb_prob, iso_score, feature_array

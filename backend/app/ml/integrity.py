@@ -16,10 +16,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 # Secure key management - in production, use proper key management service
-HMAC_SECRET_KEY = os.environ.get(
-    "TXN_INTEGRITY_SECRET", 
-    hashlib.sha256(b"vedfin_sentinel_integrity_v1_2026").digest()
-)
+_default_key = os.environ.get("TXN_INTEGRITY_SECRET")
+if _default_key:
+    HMAC_SECRET_KEY = _default_key.encode('utf-8') if isinstance(_default_key, str) else _default_key
+else:
+    # Auto-generate a random key if not set (safe default, but not persistent across restarts)
+    import secrets as _secrets
+    HMAC_SECRET_KEY = _secrets.token_bytes(32)
 
 # Key rotation support - can use multiple keys for rotation
 ACTIVE_KEYS = {
@@ -216,7 +219,7 @@ def detect_structural_anomaly(
         if ts > datetime.now(timezone.utc):
             anomalies.append("future_timestamp")
             risk_factors.append(0.9)
-    except:
+    except (ValueError, TypeError):
         anomalies.append("invalid_timestamp_format")
         risk_factors.append(0.8)
     

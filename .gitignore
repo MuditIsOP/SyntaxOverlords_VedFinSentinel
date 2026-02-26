@@ -9,6 +9,18 @@ ml-research/data/
 data/ieee-cis/raw/test_transaction.csv
 data/ieee-cis/raw/train_transaction.csv
 
+# SQLite databases (local dev fallback)
+*.db
+
+# Backend log and test output files
+backend/backend_log.txt
+backend/backend_startup.log
+backend/test_all.txt
+backend/test_final.txt
+backend/test_final2.txt
+backend/test_output.txt
+backend/test_output2.txt
+
 # Documentation and planning files (not source code)
 AGENT_RULES.md
 CHANGELOG.md

@@ -135,7 +135,7 @@ async def process_fraud_prediction(
         try:
             txn_db.integrity_hash = computed_hash
         except Exception:
-            pass  # Column may not exist in DB
+            logger.debug("integrity_hash_column_unavailable", context="structural_block")
         session.add(txn_db)
         await session.flush()
 
@@ -253,7 +253,7 @@ async def process_fraud_prediction(
         txn_db.integrity_hash = computed_hash
         txn_db.integrity_valid = integrity_result.valid if integrity_result else True
     except Exception:
-        pass  # Columns may not exist in DB
+        logger.debug("integrity_hash_column_unavailable", context="normal_path")
     session.add(txn_db)
     await session.flush()
 

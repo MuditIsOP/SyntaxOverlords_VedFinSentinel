@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from contextlib import asynccontextmanager
 import time
 import uuid
 import structlog
@@ -21,13 +22,30 @@ logger = structlog.get_logger()
 # Setup Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
 
+# Scheduler instance (module-level so lifespan can manage it)
+_scheduler = init_scheduler()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_db()
+    if not _scheduler.running:
+        _scheduler.start()
+    yield
+    # Shutdown
+    if _scheduler.running:
+        _scheduler.shutdown()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         openapi_url=f"{settings.API_V1_STR}/openapi.json",
         docs_url=f"{settings.API_V1_STR}/docs",
-        redoc_url=f"{settings.API_V1_STR}/redoc"
+        redoc_url=f"{settings.API_V1_STR}/redoc",
+        lifespan=lifespan,
     )
 
     # State attach limiter
@@ -38,10 +56,11 @@ def create_app() -> FastAPI:
     app.add_exception_handler(VedFinException, rfc7807_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
-    # CORS Middleware Setup - Restrictive for production
-    allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # CORS Middleware Setup - configurable via CORS_ORIGINS env var
+    allowed_origins = settings.cors_origin_list
     if os.getenv("ENVIRONMENT") == "development":
-        allowed_origins.extend(["http://0.0.0.0:3000"])
+        if "http://0.0.0.0:3000" not in allowed_origins:
+            allowed_origins.append("http://0.0.0.0:3000")
     
     app.add_middleware(
         CORSMiddleware,
@@ -99,20 +118,6 @@ def create_app() -> FastAPI:
     # API Routers
     from app.api.v1 import api_router
     app.include_router(api_router, prefix=settings.API_V1_STR)
-
-    # Attach Scheduler
-    app.state.scheduler = init_scheduler()
-    
-    @app.on_event("startup")
-    async def startup_event():
-        await init_db()
-        if not app.state.scheduler.running:
-            app.state.scheduler.start()
-            
-    @app.on_event("shutdown")
-    async def shutdown_event():
-        if app.state.scheduler.running:
-            app.state.scheduler.shutdown()
 
     return app
 

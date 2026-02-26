@@ -17,7 +17,14 @@ if "postgresql" in _db_url:
         _db_url = "sqlite+aiosqlite:///./vedfin_local.db"
         _using_fallback = True
 
-engine = create_async_engine(_db_url, echo=False)
+engine = create_async_engine(
+    _db_url, 
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_pre_ping=True,
+) if "sqlite" not in _db_url else create_async_engine(_db_url, echo=False)
 
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False, autoflush=False

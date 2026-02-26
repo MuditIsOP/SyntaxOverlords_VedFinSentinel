@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from uuid import UUID
@@ -55,7 +55,7 @@ async def bulk_predict_transactions(
 async def simulate_attack(
     attack_type: str,
     user_id: UUID,
-    num_transactions: int = 10
+    num_transactions: int = Query(default=10, ge=1, le=500)
 ):
     """
     Attack Simulation Laboratory - Run realistic attack scenarios.
