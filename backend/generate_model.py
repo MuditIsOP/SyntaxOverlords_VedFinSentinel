@@ -38,6 +38,16 @@ from sklearn.preprocessing import StandardScaler
 from scipy.stats import percentileofscore
 import xgboost as xgb
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
+# Import behavioral embedding model
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app", "ml", "models"))
+from behavioral_embeddings import BehavioralEmbeddingNet
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ──────────────────────────────────────────────────────────────
@@ -48,7 +58,7 @@ TRANSACTION_FILE = os.path.join(IEEE_DATA_DIR, "train_transaction.csv")
 IDENTITY_FILE = os.path.join(IEEE_DATA_DIR, "train_identity.csv")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "ml", "artifacts")
 MODEL_PATH = os.path.join(OUTPUT_DIR, "sentinel_ensemble.pkl")
-REPORT_PATH = os.path.join(OUTPUT_DIR, "eval_report.json")
+BEHAVIORAL_MODEL_PATH = os.path.join(OUTPUT_DIR, "behavioral_embedding_model.pt")
 
 # Issue #5: Use ALL 590K rows — no sampling limit
 SAMPLE_SIZE = None
@@ -281,6 +291,116 @@ def load_and_prepare_data():
     labels = df["isFraud"]
 
     return features, labels, df["TransactionDT"]
+
+
+def train_behavioral_embeddings(X_train, y_train, X_test, y_test, epochs=50, batch_size=256):
+    """
+    Train the Behavioral Embedding Neural Network on IEEE-CIS data.
+    
+    Uses the same 5 features as input: ADI, GRI, DTS, TRC, MRS
+    Learns to predict fraud probability while creating useful embeddings.
+    """
+    # Extract behavioral features for training
+    behavioral_features = ['ADI', 'GRI', 'DTS', 'TRC', 'MRS']
+    
+    # Get feature indices
+    feature_cols = X_train.columns.tolist()
+    feature_indices = [feature_cols.index(f) for f in behavioral_features if f in feature_cols]
+    
+    if not feature_indices:
+        print("   ⚠️  Behavioral features not found, using first 5 features")
+        feature_indices = list(range(5))
+    
+    # Extract behavioral feature subset
+    X_train_beh = X_train.iloc[:, feature_indices].values
+    X_test_beh = X_test.iloc[:, feature_indices].values
+    
+    # Convert to tensors
+    X_train_tensor = torch.tensor(X_train_beh, dtype=torch.float32)
+    y_train_tensor = torch.tensor(y_train.values, dtype=torch.float32)
+    X_test_tensor = torch.tensor(X_test_beh, dtype=torch.float32)
+    y_test_tensor = torch.tensor(y_test.values, dtype=torch.float32)
+    
+    # Create data loaders
+    train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    
+    # Initialize model
+    model = BehavioralEmbeddingNet(input_dim=len(feature_indices), embedding_dim=5)
+    
+    # Loss and optimizer
+    criterion = nn.BCEWithLogitsLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
+    
+    # Training loop
+    best_val_loss = float('inf')
+    patience_counter = 0
+    max_patience = 10
+    
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0.0
+        
+        for batch_X, batch_y in train_loader:
+            optimizer.zero_grad()
+            
+            # Forward pass
+            outputs = model(batch_X)
+            
+            # Use average of all index heads as fraud prediction
+            fraud_prob = (outputs['ADI'] + outputs['GRI'] + outputs['DTS'] + 
+                         outputs['TRC'] + outputs['MRS']) / 5.0
+            
+            # Compute loss
+            loss = criterion(fraud_prob.squeeze(), batch_y)
+            
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+            
+            train_loss += loss.item()
+        
+        # Validation
+        model.eval()
+        with torch.no_grad():
+            val_outputs = model(X_test_tensor)
+            val_fraud_prob = (val_outputs['ADI'] + val_outputs['GRI'] + val_outputs['DTS'] + 
+                             val_outputs['TRC'] + val_outputs['MRS']) / 5.0
+            val_loss = criterion(val_fraud_prob.squeeze(), y_test_tensor).item()
+        
+        scheduler.step(val_loss)
+        
+        # Early stopping
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            # Save best model state
+            best_state = model.state_dict().copy()
+        else:
+            patience_counter += 1
+            if patience_counter >= max_patience:
+                print(f"   ⏹️  Early stopping at epoch {epoch+1}")
+                break
+        
+        if (epoch + 1) % 10 == 0:
+            print(f"   Epoch {epoch+1}/{epochs} - Train Loss: {train_loss/len(train_loader):.4f}, Val Loss: {val_loss:.4f}")
+    
+    # Load best model
+    model.load_state_dict(best_state)
+    model.eval()
+    
+    # Compute validation accuracy
+    with torch.no_grad():
+        val_outputs = model(X_test_tensor)
+        val_fraud_prob = (val_outputs['ADI'] + val_outputs['GRI'] + val_outputs['DTS'] + 
+                         val_outputs['TRC'] + val_outputs['MRS']) / 5.0
+        val_preds = (val_fraud_prob.squeeze() > 0.5).float()
+        val_acc = (val_preds == y_test_tensor).float().mean().item()
+    
+    print(f"   ✅ Training complete - Val Accuracy: {val_acc:.2%}")
+    
+    return model
 
 
 def train_model():
@@ -535,6 +655,14 @@ def train_model():
     with open(MODEL_PATH, "wb") as f:
         pickle.dump(artifact, f)
     print(f"\n💾 Model saved: {MODEL_PATH}")
+
+    # ─── Train Behavioral Embedding Neural Network ───
+    print("\n🧠 Training Behavioral Embedding Neural Network...")
+    behavioral_model = train_behavioral_embeddings(X_train, y_train, X_test, y_test)
+    
+    # Save behavioral model
+    torch.save(behavioral_model.state_dict(), BEHAVIORAL_MODEL_PATH)
+    print(f"   💾 Behavioral model saved: {BEHAVIORAL_MODEL_PATH}")
 
     # Evaluation report
     report = {

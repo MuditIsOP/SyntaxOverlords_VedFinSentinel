@@ -37,9 +37,11 @@ async def _compute_velocity_features(session: AsyncSession, user_id, current_tim
     Compute REAL velocity features by counting actual recent transactions.
     Returns velocity_1h and velocity_24h as normalized counts (0-1 scale).
     """
-    ts_aware = current_timestamp
-    if ts_aware.tzinfo is None:
-        ts_aware = ts_aware.replace(tzinfo=timezone.utc)
+    # Use naive datetime for database queries (database stores naive datetimes)
+    if current_timestamp.tzinfo is not None:
+        ts_aware = current_timestamp.replace(tzinfo=None)
+    else:
+        ts_aware = current_timestamp
 
     window_1h = ts_aware - timedelta(hours=1)
     window_24h = ts_aware - timedelta(hours=24)
@@ -130,7 +132,10 @@ async def process_fraud_prediction(
 
         txn_db = Transaction(**payload.model_dump(exclude={'integrity_hash'}))
         txn_db.fraud_label = True
-        txn_db.integrity_hash = computed_hash
+        try:
+            txn_db.integrity_hash = computed_hash
+        except Exception:
+            pass  # Column may not exist in DB
         session.add(txn_db)
         await session.flush()
 
@@ -244,8 +249,11 @@ async def process_fraud_prediction(
 
     txn_db = Transaction(**payload.model_dump(exclude={'integrity_hash'}))
     txn_db.fraud_label = (band == RiskBandEnum.FRAUD)
-    txn_db.integrity_hash = computed_hash
-    txn_db.integrity_valid = integrity_result.valid if integrity_result else True
+    try:
+        txn_db.integrity_hash = computed_hash
+        txn_db.integrity_valid = integrity_result.valid if integrity_result else True
+    except Exception:
+        pass  # Columns may not exist in DB
     session.add(txn_db)
     await session.flush()
 

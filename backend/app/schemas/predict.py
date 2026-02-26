@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Dict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
 class TransactionRequest(BaseModel):
@@ -23,7 +23,7 @@ class TransactionRequest(BaseModel):
         """Ensure timestamp is not in the future beyond a 5min clock drift."""
         if v.tzinfo is None:
             v = v.replace(tzinfo=timezone.utc)
-        if v > datetime.now(timezone.utc) + datetime.timedelta(minutes=5):
+        if v > datetime.now(timezone.utc) + timedelta(minutes=5):
             raise ValueError('Transaction timestamp cannot be in the future')
         return v
 

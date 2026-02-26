@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, DateTime, Boolean, Numeric, ForeignKey
-from sqlalchemy import JSON, Uuid
+from sqlalchemy import JSON, Uuid, text
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from uuid import uuid4
 
 from .base import Base
@@ -21,10 +21,11 @@ class Transaction(Base):
     merchant_id      = Column(String(128))
     recipient_id     = Column(Uuid(as_uuid=True), ForeignKey('users.user_id'))
     fraud_label      = Column(Boolean)
-    integrity_hash   = Column(String(256))
-    integrity_valid  = Column(Boolean, default=True)
-    structural_anomalies = Column(JSON)
-    raw_payload      = Column(JSON)
+    # Database columns are vedic_checksum/vedic_valid, not integrity_hash/integrity_valid
+    integrity_hash   = Column('vedic_checksum', String(256))
+    integrity_valid  = Column('vedic_valid', Boolean, default=True)
+    structural_anomalies = deferred(Column(JSON))
+    raw_payload      = deferred(Column(JSON))
     is_deleted       = Column(Boolean, default=False)
     deleted_at       = Column(DateTime(timezone=True), nullable=True)
     created_at       = Column(DateTime(timezone=True), server_default=func.now())

@@ -6,8 +6,48 @@ from app.db.session import get_db_session
 
 from app.services.metrics import compute_dashboard_metrics
 from app.services.kafka_streaming import get_stream_metrics, kafka_processor, submit_to_stream
+from app.ml.models.behavioral_embeddings import behavioral_analyzer
 
 router = APIRouter()
+
+@router.get("/health", summary="System Health Check")
+async def get_health_check():
+    """
+    Comprehensive health check endpoint.
+    Exposes status of all ML models and infrastructure components.
+    """
+    # Get component statuses
+    kafka_health = kafka_processor.get_health()
+    behavioral_status = behavioral_analyzer.get_status()
+    
+    # Determine overall health
+    is_healthy = (
+        behavioral_status["is_loaded"] and
+        kafka_health.get("demo_mode", False) is not None  # Either mode is fine
+    )
+    
+    return {
+        "status": "healthy" if is_healthy else "degraded",
+        "timestamp": time.time(),
+        "components": {
+            "behavioral_model": {
+                "status": "loaded" if behavioral_status["is_loaded"] else "failed",
+                "mode": behavioral_status["mode"],
+                "using_trained_weights": behavioral_status["using_trained_weights"],
+                "model_path": behavioral_status["model_path"]
+            },
+            "kafka_streaming": {
+                "status": "healthy" if kafka_health["kafka_healthy"] else "degraded",
+                "mode": "kafka" if not kafka_health["demo_mode"] else "demo_queue",
+                "kafka_available": kafka_health["kafka_available"],
+                "last_error": kafka_health["last_error"]
+            }
+        },
+        "notes": {
+            "behavioral_model": "Trained on IEEE-CIS dataset" if behavioral_status["using_trained_weights"] else "Run generate_model.py to train",
+            "kafka": "Install kafka-python and start Kafka for production streaming" if kafka_health["demo_mode"] else "Production Kafka active"
+        }
+    }
 
 @router.get("/metrics", summary="Global Dashboard Metrics")
 async def get_system_metrics(

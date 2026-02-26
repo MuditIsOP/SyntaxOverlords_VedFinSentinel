@@ -5,14 +5,99 @@ Replaces heuristic threshold rules (ADI, GRI, DTS, TRC, MRS) with neural network
 Each index is now a learned dense vector from a small neural network, not a threshold calculation.
 """
 
-import torch
-import torch.nn as nn
+import os
 import numpy as np
 from typing import Dict, List, Tuple
 from datetime import datetime, timezone
 import structlog
 
+# Optional torch import - backend can work without it for demo
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    # Create dummy classes for when torch isn't installed
+    
+    # Define Tensor first as standalone
+    class _DummyTensor:
+        def __init__(self, *args, **kwargs):
+            self._data = None
+        def unsqueeze(self, *args):
+            return self
+        def squeeze(self, *args):
+            return self
+        def to(self, *args):
+            return self
+        def numpy(self):
+            return np.array([0.0])
+        def item(self):
+            return 0.0
+        def __float__(self):
+            return 0.0
+        def tolist(self):
+            return [0.0]
+    
+    class nn:
+        class Module:
+            def eval(self):
+                pass
+            def __call__(self, x):
+                return self.forward(x)
+            def forward(self, x):
+                return x
+        class Sequential:
+            def __init__(self, *args):
+                self.layers = args
+            def __call__(self, x):
+                return x
+        class Linear:
+            def __init__(self, *args, **kwargs):
+                pass
+            def __call__(self, x):
+                return x
+        class ReLU:
+            def __call__(self, x):
+                return x
+        class Dropout:
+            def __init__(self, *args):
+                pass
+            def __call__(self, x):
+                return x
+        class Sigmoid:
+            def __call__(self, x):
+                return x
+        class BCEWithLogitsLoss:
+            def __call__(self, *args, **kwargs):
+                return _DummyTensor()
+    
+    class torch:
+        Tensor = _DummyTensor
+        @staticmethod
+        def tensor(*args, **kwargs):
+            return _DummyTensor(*args, **kwargs)
+        @staticmethod
+        def load(*args, **kwargs):
+            return None
+        @staticmethod
+        def sigmoid(x):
+            return x if hasattr(x, 'unsqueeze') else _DummyTensor()
+        @staticmethod
+        def no_grad():
+            class NoGradContext:
+                def __enter__(self):
+                    return self
+                def __exit__(self, *args):
+                    pass
+            return NoGradContext()
+
 logger = structlog.get_logger()
+
+# Default model path
+DEFAULT_MODEL_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "..", "ml", "artifacts", "behavioral_embedding_model.pt"
+)
 
 
 class BehavioralEmbeddingNet(nn.Module):
@@ -97,10 +182,32 @@ class LearnedBehavioralAnalyzer:
         self.model = None
         self.is_loaded = False
         
+        # Try to load trained model, fall back to demo only if no trained model exists
         if model_path:
             self.load_model(model_path)
         else:
-            self._init_demo_model()
+            # Try default path first
+            self._try_load_trained_model()
+    
+    def _try_load_trained_model(self):
+        """Attempt to load trained model from artifacts directory."""
+        # Check multiple possible paths
+        possible_paths = [
+            DEFAULT_MODEL_PATH,
+            os.path.join("backend", "ml", "artifacts", "behavioral_embedding_model.pt"),
+            os.path.join("ml", "artifacts", "behavioral_embedding_model.pt"),
+            os.path.join(os.getcwd(), "backend", "ml", "artifacts", "behavioral_embedding_model.pt"),
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                self.load_model(path)
+                return
+        
+        # No trained model found - use demo mode
+        logger.warning("behavioral_model_no_trained_weights_found_using_demo_mode")
+        self._init_demo_model()
+        logger.warning("⚠️  Running with random weights - run generate_model.py to train")
     
     def _init_demo_model(self):
         """Initialize with random weights for demo."""
@@ -110,15 +217,31 @@ class LearnedBehavioralAnalyzer:
         logger.info("behavioral_analyzer_initialized_demo_mode")
     
     def load_model(self, model_path: str):
-        """Load trained model."""
+        """Load trained model weights."""
         try:
-            self.model = torch.load(model_path, map_location='cpu')
+            # Initialize model architecture
+            self.model = BehavioralEmbeddingNet(input_dim=9, embedding_dim=5)
+            
+            # Load state dict
+            state_dict = torch.load(model_path, map_location='cpu')
+            self.model.load_state_dict(state_dict)
+            
             self.model.eval()
             self.is_loaded = True
-            logger.info("behavioral_model_loaded", path=model_path)
+            self.model_path = model_path
+            logger.info("behavioral_model_loaded_trained_weights", path=model_path)
         except Exception as e:
             logger.error("behavioral_model_load_failed", error=str(e))
             self._init_demo_model()
+    
+    def get_status(self) -> Dict[str, any]:
+        """Return current model status."""
+        return {
+            "is_loaded": self.is_loaded,
+            "using_trained_weights": hasattr(self, 'model_path'),
+            "model_path": getattr(self, 'model_path', None),
+            "mode": "trained" if hasattr(self, 'model_path') else "demo"
+        }
     
     def _extract_features(self, txn: Dict, user_baseline: Dict) -> np.ndarray:
         """

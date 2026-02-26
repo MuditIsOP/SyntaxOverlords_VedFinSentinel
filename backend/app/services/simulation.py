@@ -13,11 +13,20 @@ def generate_attack_payload(scenario: AttackScenarioEnum, base_user_id: uuid.UUI
     Generates realistic attack payloads matching PRD scenarios.
     
     Scenarios:
-    - GEO_SPOOFING: Rapid location changes (VPN, proxy hopping)
-    - BURST_MICRO: High-frequency small transactions (card testing)
-    - ACCOUNT_TAKEOVER: New device + new location + high value
+    - GEO_SPOOFING/IMPOSSIBLE_TRAVEL: Rapid location changes (VPN, proxy hopping)
+    - BURST_MICRO/VELOCITY_BURST: High-frequency small transactions (card testing)
+    - ACCOUNT_TAKEOVER/INTEGRITY_ATTACK: New device + new location + high value
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)  # Naive datetime to match database
+    
+    # Map aliases to base scenarios
+    scenario_map = {
+        AttackScenarioEnum.VELOCITY_BURST: AttackScenarioEnum.BURST_MICRO,
+        AttackScenarioEnum.IMPOSSIBLE_TRAVEL: AttackScenarioEnum.GEO_SPOOFING,
+        AttackScenarioEnum.INTEGRITY_ATTACK: AttackScenarioEnum.ACCOUNT_TAKEOVER,
+    }
+    # Use mapped scenario if it's an alias, otherwise use original
+    effective_scenario = scenario_map.get(scenario, scenario)
     
     # Location pools for realistic scenarios
     INDIA_LOCATIONS = [
@@ -34,7 +43,7 @@ def generate_attack_payload(scenario: AttackScenarioEnum, base_user_id: uuid.UUI
         {"city": "Dubai", "lat": 25.2048, "lng": 55.2708},
     ]
     
-    if scenario == AttackScenarioEnum.BURST_MICRO:
+    if effective_scenario == AttackScenarioEnum.BURST_MICRO:
         # Card testing: small amounts, rapid fire, same device
         # PRD: 50 transactions under ₹999 in 3 minutes
         payload = TransactionRequest(
@@ -49,7 +58,7 @@ def generate_attack_payload(scenario: AttackScenarioEnum, base_user_id: uuid.UUI
         )
         return payload, {"scenario": "burst_micro", "iteration": iteration, "city": "Mumbai"}
         
-    elif scenario == AttackScenarioEnum.GEO_SPOOFING:
+    elif effective_scenario == AttackScenarioEnum.GEO_SPOOFING:
         # VPN/proxy hopping: same transaction, different countries rapidly
         # Alternate between India and foreign locations
         is_foreign = iteration % 2 == 1
@@ -68,7 +77,7 @@ def generate_attack_payload(scenario: AttackScenarioEnum, base_user_id: uuid.UUI
         )
         return payload, {"scenario": "geo_spoofing", "iteration": iteration, "city": loc["city"], "is_foreign": is_foreign}
         
-    elif scenario == AttackScenarioEnum.ACCOUNT_TAKEOVER:
+    elif effective_scenario == AttackScenarioEnum.ACCOUNT_TAKEOVER:
         # New device, new location, unknown recipient, high value
         loc = random.choice(FOREIGN_LOCATIONS)
         

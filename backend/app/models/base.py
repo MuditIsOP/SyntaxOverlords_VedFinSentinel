@@ -31,4 +31,7 @@ class AttackScenarioEnum(str, PyEnum):
     # FIXED: Match PRD specification exactly
     GEO_SPOOFING = 'GEO_SPOOFING'         # Simulate login from new country, VPN
     BURST_MICRO = 'BURST_MICRO'            # 50 transactions under ₹999 in 3 minutes
+    VELOCITY_BURST = 'VELOCITY_BURST'      # Alias for BURST_MICRO (frontend compatibility)
+    IMPOSSIBLE_TRAVEL = 'IMPOSSIBLE_TRAVEL'  # Alias for GEO_SPOOFING (frontend compatibility)
     ACCOUNT_TAKEOVER = 'ACCOUNT_TAKEOVER'  # New device, new geo, unknown recipients
+    INTEGRITY_ATTACK = 'INTEGRITY_ATTACK'  # Alias for ACCOUNT_TAKEOVER (frontend compatibility)

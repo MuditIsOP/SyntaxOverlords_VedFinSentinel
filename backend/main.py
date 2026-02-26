@@ -79,12 +79,14 @@ def create_app() -> FastAPI:
         """Health check endpoint with system status"""
         try:
             # Check database connection
+            from sqlalchemy import text
             from app.db.session import engine
             async with engine.begin() as conn:
-                await conn.execute("SELECT 1")
+                await conn.execute(text("SELECT 1"))
             db_status = "healthy"
-        except Exception:
+        except Exception as e:
             db_status = "unhealthy"
+            logger.warning("health_check_db_failed", error=str(e))
             
         return {
             "status": "ok" if db_status == "healthy" else "degraded",

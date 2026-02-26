@@ -439,7 +439,10 @@ async def aggregate_features(
     recent_txns = await fetch_recent_user_transactions(
         session, txn_data["user_id"], limit=20
     )
+    # Normalize timestamp to naive datetime (database stores naive datetimes)
     now = txn_data["txn_timestamp"]
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
     
     # JUDGE FIX: Use learned behavioral embeddings instead of heuristics
     from app.ml.models.behavioral_embeddings import behavioral_analyzer

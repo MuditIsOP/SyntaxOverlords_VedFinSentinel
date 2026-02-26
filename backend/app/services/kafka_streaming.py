@@ -34,22 +34,29 @@ class KafkaStreamProcessor:
     - Exactly-once processing semantics
     - Automatic topic creation
     - Sliding window metrics from consumer lag
+    - Graceful fallback to demo mode with health reporting
     """
     
     def __init__(
         self,
         bootstrap_servers: str = "localhost:9092",
         topic: str = "fraud-transactions",
-        consumer_group: str = "fraud-detection-group"
+        consumer_group: str = "fraud-detection-group",
+        enable_demo_fallback: bool = True
     ):
         self.bootstrap_servers = bootstrap_servers
         self.topic = topic
         self.consumer_group = consumer_group
         self.is_running = False
+        self.enable_demo_fallback = enable_demo_fallback
         
         self.producer: Optional[KafkaProducer] = None
         self.consumer: Optional[KafkaConsumer] = None
         self.admin_client: Optional[KafkaAdminClient] = None
+        
+        # Health tracking
+        self.kafka_healthy = False
+        self.last_error: Optional[str] = None
         
         # Stats
         self.processing_stats = {
@@ -69,15 +76,32 @@ class KafkaStreamProcessor:
         
     async def initialize(self):
         """Initialize Kafka connection and create topic if needed."""
+        if not KAFKA_AVAILABLE:
+            logger.warning("kafka_python_package_not_installed")
+            self._demo_mode = True
+            self.kafka_healthy = False
+            self.last_error = "kafka-python package not installed"
+            return
+        
         if self._demo_mode:
-            logger.warning("kafka_not_available_using_demo_queue")
+            logger.info("kafka_in_demo_mode_skipping_init")
             return
         
         try:
+            # Test connection first with short timeout
+            from kafka import KafkaClient
+            client = KafkaClient(
+                bootstrap_servers=self.bootstrap_servers,
+                request_timeout_ms=3000
+            )
+            client.check_version()
+            client.close()
+            
             # Create admin client
             self.admin_client = KafkaAdminClient(
                 bootstrap_servers=self.bootstrap_servers,
-                client_id="fraud-admin"
+                client_id="fraud-admin",
+                request_timeout_ms=5000
             )
             
             # Create topic if not exists
@@ -95,18 +119,39 @@ class KafkaStreamProcessor:
             self.producer = KafkaProducer(
                 bootstrap_servers=self.bootstrap_servers,
                 value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-                acks='all',  # Wait for all replicas
-                retries=3
+                acks='all',
+                retries=3,
+                request_timeout_ms=5000
             )
             
+            self.kafka_healthy = True
+            self.last_error = None
             logger.info("kafka_initialized", 
                        bootstrap=self.bootstrap_servers,
                        topic=self.topic)
             
         except Exception as e:
             logger.error("kafka_init_failed", error=str(e))
-            self._demo_mode = True
-            logger.warning("falling_back_to_demo_mode")
+            self.kafka_healthy = False
+            self.last_error = str(e)
+            
+            if self.enable_demo_fallback:
+                self._demo_mode = True
+                logger.warning("falling_back_to_demo_mode")
+            else:
+                raise
+    
+    def get_health(self) -> Dict[str, Any]:
+        """Get Kafka health status."""
+        return {
+            "kafka_healthy": self.kafka_healthy,
+            "demo_mode": self._demo_mode,
+            "kafka_available": KAFKA_AVAILABLE,
+            "last_error": self.last_error,
+            "is_running": self.is_running,
+            "topic": self.topic,
+            "bootstrap_servers": self.bootstrap_servers
+        }
     
     async def produce_transaction(self, transaction: Dict[str, Any]) -> bool:
         """
