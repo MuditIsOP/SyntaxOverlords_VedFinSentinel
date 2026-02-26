@@ -6,3 +6,5 @@ node_modules
 .next
 ml-research/artifacts/*.pkl
 ml-research/data/
+data/ieee-cis/raw/test_transaction.csv
+data/ieee-cis/raw/train_transaction.csv
