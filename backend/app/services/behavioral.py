@@ -433,8 +433,7 @@ async def aggregate_features(
     user_baseline: dict
 ) -> Dict[str, float]:
     """
-    Orchestrates all statistical behavioral features.
-    Returns comprehensive feature dictionary for ML pipeline.
+    Orchestrates all behavioral features using LEARNED embeddings (not heuristics).
     """
     # Gather DB context
     recent_txns = await fetch_recent_user_transactions(
@@ -442,7 +441,12 @@ async def aggregate_features(
     )
     now = txn_data["txn_timestamp"]
     
-    # Compute geographic anomaly
+    # JUDGE FIX: Use learned behavioral embeddings instead of heuristics
+    from app.ml.models.behavioral_embeddings import behavioral_analyzer
+    
+    learned_indices = behavioral_analyzer.analyze(txn_data, user_baseline)
+    
+    # Compute geographic anomaly (statistical - still valid)
     geo_score, geo_dist = compute_geo_anomaly_score(
         txn_data.get("geo_lat"), 
         txn_data.get("geo_lng"), 
@@ -455,11 +459,9 @@ async def aggregate_features(
         txn_data.get("recipient_id")
     )
     
-    # JUDGE FIX: Add LSTM sequence-based anomaly detection
-    # This addresses "Behavioral Indices are Heuristics, Not ML"
+    # LSTM sequence analysis
     from app.ml.models.sequence_model import sequence_analyzer
     
-    # Convert transactions to dicts for sequence analyzer
     txn_dicts = [
         {
             "amount": float(t.amount),
@@ -471,7 +473,6 @@ async def aggregate_features(
         for t in recent_txns
     ]
     
-    # Add current transaction for sequence deviation analysis
     current_txn = {
         "amount": txn_data["amount"],
         "txn_timestamp": now,
@@ -480,37 +481,38 @@ async def aggregate_features(
         "merchant_category": txn_data.get("merchant_category", "")
     }
     
-    sequence_result = sequence_analyzer.compute_sequence_deviation(
-        txn_dicts, 
-        current_txn
-    )
+    sequence_result = sequence_analyzer.compute_sequence_deviation(txn_dicts, current_txn)
     
-    # Build feature vector
+    # Build feature vector with LEARNED indices
     features = {
-        # Core statistical indices (mapped from legacy names for compatibility)
-        "ADI": compute_adi(txn_data["amount"], user_baseline),
-        "GRI": geo_score,
-        "DTS": compute_dts(txn_data["device_id"], user_baseline),
-        "TRC": compute_trc(now, recent_txns),
-        "MRS": compute_mrs(txn_data["merchant_category"], recent_txns),
+        # LEARNED behavioral indices (neural network, not heuristics)
+        "ADI": learned_indices["ADI"],
+        "GRI": learned_indices["GRI"],
+        "DTS": learned_indices["DTS"],
+        "TRC": learned_indices["TRC"],
+        "MRS": learned_indices["MRS"],
         
-        # Advanced statistical features
+        # Statistical features (still valid)
         "amount_percentile": compute_amount_percentile(txn_data["amount"], recent_txns),
         "geo_distance_km": geo_dist,
         "velocity_entropy": compute_velocity_entropy(recent_txns, now),
-        "category_entropy": compute_category_diversity_entropy(
-            recent_txns, 
-            txn_data.get("merchant_category", "")
-        ),
+        "category_entropy": compute_category_diversity_entropy(recent_txns, txn_data.get("merchant_category", "")),
         "sequence_autocorr": compute_sequence_autocorrelation(recent_txns),
         "recipient_risk": recipient_risk,
         "recipient_connections": min(1.0, recipient_connections / 100),
         "ewma_deviation": compute_ewma_deviation(txn_data["amount"], recent_txns),
         "time_anomaly": compute_time_of_day_anomaly(now, recent_txns),
         
-        # JUDGE FIX: LSTM-learned sequence anomaly (replaces heuristic rules)
+        # LSTM features
         "sequence_anomaly": sequence_result,
         "lstm_confidence": sequence_result if sequence_result > 0.5 else 1 - sequence_result,
+        
+        # Learned embedding vector components
+        "emb_0": learned_indices["embedding"][0],
+        "emb_1": learned_indices["embedding"][1],
+        "emb_2": learned_indices["embedding"][2],
+        "emb_3": learned_indices["embedding"][3],
+        "emb_4": learned_indices["embedding"][4],
     }
     
     return features

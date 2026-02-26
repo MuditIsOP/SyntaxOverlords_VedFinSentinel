@@ -5,7 +5,7 @@ import random
 from app.db.session import get_db_session
 
 from app.services.metrics import compute_dashboard_metrics
-from app.services.streaming import get_stream_metrics, stream_processor
+from app.services.kafka_streaming import get_stream_metrics, kafka_processor, submit_to_stream
 
 router = APIRouter()
 
@@ -20,36 +20,37 @@ async def get_system_metrics(
     return await compute_dashboard_metrics(db=db, window_hours=24)
 
 
-@router.get("/metrics/live", summary="Live Streaming Metrics")
+@router.get("/metrics/live", summary="Live Kafka Streaming Metrics")
 async def get_live_metrics(
     window_seconds: int = 60
 ):
     """
-    Real-time streaming metrics from sliding window.
+    Real-time streaming metrics from Kafka consumer.
     Provides live throughput, latency, and fraud detection rate.
     """
     return {
         "window_seconds": window_seconds,
         **get_stream_metrics(window_seconds),
         "processor_stats": {
-            "total_processed": stream_processor.processing_stats["processed"],
-            "errors": stream_processor.processing_stats["errors"],
-            "avg_latency_ms": round(stream_processor.processing_stats["avg_latency_ms"], 2),
-            "current_throughput_tps": round(stream_processor.processing_stats["throughput_tps"], 2)
-        }
+            "total_produced": kafka_processor.processing_stats["produced"],
+            "total_consumed": kafka_processor.processing_stats["consumed"],
+            "errors": kafka_processor.processing_stats["errors"],
+            "avg_latency_ms": round(kafka_processor.processing_stats["avg_latency_ms"], 2),
+        },
+        "mode": "kafka" if not kafka_processor._demo_mode else "demo_queue"
     }
 
 
-@router.post("/stream/transaction", summary="Submit Transaction to Stream")
+@router.post("/stream/transaction", summary="Submit Transaction to Kafka Stream")
 async def submit_stream_transaction(transaction: dict):
     """
-    Submit a transaction for real-time streaming processing.
+    Submit a transaction to Kafka for real-time streaming processing.
     High-throughput endpoint for bulk transaction ingestion.
     """
-    accepted = await stream_processor.submit_transaction(transaction)
+    accepted = await submit_to_stream(transaction)
     return {
         "accepted": accepted,
-        "queue_size": stream_processor.transaction_queue.qsize(),
+        "mode": "kafka" if not kafka_processor._demo_mode else "demo_queue",
         "timestamp": time.time()
     }
 
