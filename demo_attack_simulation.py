@@ -20,6 +20,33 @@ from typing import Dict, Any
 
 BASE_URL = "http://localhost:8000"
 
+# Get auth token for demo
+def get_auth_token():
+    """Get authentication token for API calls."""
+    try:
+        response = requests.post(
+            f"{BASE_URL}/api/v1/auth/token",
+            data={
+                "username": "demo@vedfin.com",
+                "password": "admin123"
+            }
+        )
+        if response.status_code == 200:
+            return response.json()["access_token"]
+        else:
+            print(f"Failed to get auth token: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"Error getting auth token: {e}")
+        return None
+
+# Global token
+AUTH_TOKEN = get_auth_token()
+HEADERS = {
+    "Authorization": f"Bearer {AUTH_TOKEN}",
+    "Content-Type": "application/json"
+} if AUTH_TOKEN else {}
+
 
 def print_header(title: str):
     """Print formatted header."""
@@ -58,11 +85,11 @@ def run_demo():
     
     # Check if API is running
     try:
-        health = requests.get(f"{BASE_URL}/api/v1/metrics/precision-recall", timeout=5)
+        health = requests.get(f"{BASE_URL}/api/v1/health", headers=HEADERS, timeout=5)
         print(f"\n  ✅ API Status: ONLINE (status {health.status_code})")
     except:
         print(f"\n  ❌ API Status: OFFLINE - Please start the backend first:")
-        print(f"     cd backend && uvicorn app.main:app --reload")
+        print(f"     cd backend && python -m uvicorn app.main:app --reload")
         return
     
     # Run individual attack simulations
@@ -73,12 +100,13 @@ def run_demo():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/api/v1/simulate/attack",
+            f"{BASE_URL}/api/v1/scoring/simulate/attack",
             params={
                 "attack_type": "card_testing",
                 "user_id": demo_user_id,
                 "num_transactions": 20
             },
+            headers=HEADERS,
             timeout=30
         )
         if response.status_code == 200:
@@ -95,12 +123,13 @@ def run_demo():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/api/v1/simulate/attack",
+            f"{BASE_URL}/api/v1/scoring/simulate/attack",
             params={
                 "attack_type": "account_takeover",
                 "user_id": demo_user_id,
                 "num_transactions": 3
             },
+            headers=HEADERS,
             timeout=30
         )
         if response.status_code == 200:
@@ -116,12 +145,13 @@ def run_demo():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/api/v1/simulate/attack",
+            f"{BASE_URL}/api/v1/scoring/simulate/attack",
             params={
                 "attack_type": "velocity_burst",
                 "user_id": demo_user_id,
                 "num_transactions": 15
             },
+            headers=HEADERS,
             timeout=30
         )
         if response.status_code == 200:
@@ -137,11 +167,12 @@ def run_demo():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/api/v1/simulate/attack",
+            f"{BASE_URL}/api/v1/scoring/simulate/attack",
             params={
                 "attack_type": "impossible_travel",
                 "user_id": demo_user_id
             },
+            headers=HEADERS,
             timeout=30
         )
         if response.status_code == 200:
@@ -157,12 +188,13 @@ def run_demo():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/api/v1/simulate/attack",
+            f"{BASE_URL}/api/v1/scoring/simulate/attack",
             params={
                 "attack_type": "merchant_fraud",
                 "user_id": demo_user_id,
                 "num_transactions": 5
             },
+            headers=HEADERS,
             timeout=30
         )
         if response.status_code == 200:
@@ -220,10 +252,11 @@ def run_single_api_test():
     print_header("QUICK API TEST")
     
     # Test the predict endpoint directly
+    from datetime import datetime, timezone
     test_txn = {
         "user_id": str(uuid.uuid4()),
         "amount": 15000.0,
-        "txn_timestamp": datetime.now().isoformat(),
+        "txn_timestamp": datetime.now(timezone.utc).isoformat(),
         "geo_lat": 28.6139,
         "geo_lng": 77.2090,
         "device_id": "test_device_001",
@@ -234,8 +267,9 @@ def run_single_api_test():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/api/v1/predict",
+            f"{BASE_URL}/api/v1/scoring/predict",
             json=test_txn,
+            headers=HEADERS,
             timeout=10
         )
         if response.status_code == 200:

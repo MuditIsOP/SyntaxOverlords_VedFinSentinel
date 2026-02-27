@@ -91,6 +91,16 @@ def create_app() -> FastAPI:
         )
         return response
 
+    # Root route - redirect to docs or return API info
+    @app.get("/")
+    async def root():
+        return {
+            "name": settings.PROJECT_NAME,
+            "version": settings.VERSION,
+            "docs": f"{settings.API_V1_STR}/docs",
+            "health": f"{settings.API_V1_STR}/health"
+        }
+
     # Health Check Example Route
     @app.get(f"{settings.API_V1_STR}/health")
     @limiter.limit("10/minute")

@@ -198,7 +198,7 @@ class AttackSimulator:
             txn = TransactionRequest(
                 user_id=user_id,
                 amount=random.uniform(5000, 50000),
-                txn_timestamp=now + timedelta(minutes=i*10),
+                txn_timestamp=now - timedelta(minutes=i*10),
                 geo_lat=28.6139,
                 geo_lng=77.2090,
                 device_id="user_phone_001",

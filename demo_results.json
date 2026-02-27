@@ -1,0 +1,13 @@
+{
+  "demo_title": "The Heist & Catch - Attack Simulation Laboratory",
+  "timestamp": "2026-02-27T13:22:06.052930",
+  "user_id": "26979b31-35d6-45ab-aa56-8b8b8d50c147",
+  "summary": {
+    "total_attacks": 0,
+    "total_detected": 0,
+    "total_blocked": 0,
+    "detection_rate": 0,
+    "block_rate": 0
+  },
+  "simulations": {}
+}

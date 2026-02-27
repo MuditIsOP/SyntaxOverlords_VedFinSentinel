@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, case, extract, text
+from typing import List
 from app.models.transaction import Transaction
 from app.models.risk_audit_log import RiskAuditLog
 from app.models.base import RiskBandEnum
@@ -212,6 +213,32 @@ async def compute_dashboard_metrics(db: AsyncSession, window_hours: int = 24) ->
     except Exception:
         anomaly_rate = 0.0  # Default fallback
 
+    # 10. Recent alerts — latest FRAUD/SUSPICIOUS audit entries for dashboard panel
+    recent_alerts: List[dict] = []
+    try:
+        alerts_query = (
+            select(RiskAuditLog, Transaction)
+            .join(Transaction, RiskAuditLog.txn_id == Transaction.txn_id, isouter=True)
+            .where(
+                RiskAuditLog.created_at >= window_start,
+                RiskAuditLog.risk_band.in_([RiskBandEnum.FRAUD, RiskBandEnum.SUSPICIOUS])
+            )
+            .order_by(RiskAuditLog.created_at.desc())
+            .limit(5)
+        )
+        alerts_res = await db.execute(alerts_query)
+        for log, txn in alerts_res.all():
+            band_name = log.risk_band.name if hasattr(log.risk_band, 'name') else str(log.risk_band)
+            amount = float(txn.amount) if txn else 0.0
+            category = txn.merchant_category if txn else "Unknown"
+            recent_alerts.append({
+                "type": band_name,
+                "timestamp": log.created_at.isoformat() if log.created_at else datetime.now(timezone.utc).isoformat(),
+                "details": f"Score {round(float(log.fraud_score), 3)} | ₹{amount:,.0f} | {category} | Action: {log.action_taken.name if hasattr(log.action_taken, 'name') else str(log.action_taken)}"
+            })
+    except Exception:
+        recent_alerts = []
+
     return {
         "window": f"{window_hours}h",
         "total_transactions": total_txns,
@@ -235,4 +262,5 @@ async def compute_dashboard_metrics(db: AsyncSession, window_hours: int = 24) ->
         "avg_dynamic_threshold": round(avg_threshold, 3) if avg_threshold else 0.5,
         "system_health": "OPTIMAL",
         "training_report": training_report,
+        "recent_alerts": recent_alerts,
     }

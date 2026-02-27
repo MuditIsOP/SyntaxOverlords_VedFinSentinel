@@ -42,8 +42,13 @@ class ConnectionManager:
             try:
                 await connection.send_text(message)
             except Exception as e:
-                logger.error("ws_broadcast_failed", error=str(e))
-                disconnected.append(connection)
+                error_msg = str(e)
+                # Silently handle normal disconnects (1000) and already-closed connections
+                if "1000" in error_msg or "close message has been sent" in error_msg:
+                    disconnected.append(connection)
+                else:
+                    logger.error("ws_broadcast_failed", error=error_msg)
+                    disconnected.append(connection)
         for conn in disconnected:
             self.disconnect(conn)
 
@@ -68,7 +73,7 @@ async def fetch_recent_transactions(limit: int = 10) -> List[dict]:
             transactions.append({
                 "txn_id": str(txn.txn_id),
                 "amount": float(txn.amount),
-                "merchant": txn.merchant_category,
+                "merchant_category": txn.merchant_category,
                 "risk_band": audit.risk_band.name if audit else "PENDING",
                 "fraud_score": float(audit.fraud_score) if audit else 0.0,
                 "timestamp": txn.txn_timestamp.isoformat() if txn.txn_timestamp else datetime.now(timezone.utc).isoformat(),
@@ -102,7 +107,7 @@ async def poll_new_transactions(last_id: str = None, poll_interval: float = 0.5)
                             "payload": {
                                 "txn_id": txn_id_str,
                                 "amount": float(txn.amount),
-                                "merchant": txn.merchant_category,
+                                "merchant_category": txn.merchant_category,
                                 "risk_band": audit.risk_band.name if audit else "PENDING",
                                 "fraud_score": float(audit.fraud_score) if audit else 0.0,
                                 "timestamp": txn.txn_timestamp.isoformat() if txn.txn_timestamp else datetime.now(timezone.utc).isoformat(),

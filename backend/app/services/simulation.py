@@ -122,10 +122,10 @@ def generate_attack_payload(scenario: AttackScenarioEnum, base_user_id: uuid.UUI
         return payload, {"scenario": "normal", "city": loc["city"]}
 
 from app.services.fraud_scoring import process_fraud_prediction
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 async def stream_attack_simulation(
-    session: AsyncSession,
+    session_factory: async_sessionmaker,
     scenario: AttackScenarioEnum,
     count: int,
     user_id: uuid.UUID,
@@ -139,30 +139,37 @@ async def stream_attack_simulation(
         # FIXED: Pass iteration for progressive scenarios
         payload, meta = generate_attack_payload(scenario, user_id, iteration=i)
         
-        try:
-            res = await process_fraud_prediction(mock_request, payload, session)
-            
-            res_dict = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "stage": "SIMULATING",
-                "scenario": meta.get("scenario"),
-                "iteration": i,
-                "details": f"{scenario.name} | {meta.get('city', 'N/A')} | Stage: {meta.get('stage', 'N/A')}",
-                "txn_id": str(res.txn_id),
-                "fraud_score": float(res.fraud_score),
-                "risk_band": res.risk_band,
-                "action_taken": res.action_taken,
-                "reasons": res.reasons,
-            }
-            
-            yield json.dumps(res_dict) + "\n"
-        except Exception as e:
-            yield json.dumps({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "stage": "ERROR",
-                "error": str(e),
-                "iteration": i
-            }) + "\n"
+        # Use a fresh session for each transaction to avoid session state issues
+        async with session_factory() as session:
+            try:
+                res = await process_fraud_prediction(mock_request, payload, session)
+                
+                res_dict = {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "SIMULATING",
+                    "scenario": meta.get("scenario"),
+                    "iteration": i,
+                    "details": f"{scenario.name} | {meta.get('city', 'N/A')} | Stage: {meta.get('stage', 'N/A')}",
+                    "txn_id": str(res.txn_id),
+                    "fraud_score": float(res.fraud_score),
+                    "risk_band": res.risk_band,
+                    "action_taken": res.action_taken,
+                    "reasons": res.reasons,
+                }
+                
+                yield json.dumps(res_dict) + "\n"
+            except Exception as e:
+                import traceback
+                error_detail = f"{type(e).__name__}: {str(e)}"
+                logger.error("attack_simulation_failed", iteration=i, error=error_detail, traceback=traceback.format_exc())
+                yield json.dumps({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "ERROR",
+                    "error": error_detail,
+                    "iteration": i
+                }) + "\n"
             
         await asyncio.sleep(rate_limit_ms / 1000.0)
-
+    
+    # Signal completion
+    yield json.dumps({"stage": "COMPLETE", "total": count}) + "\n"

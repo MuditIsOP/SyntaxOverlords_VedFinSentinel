@@ -41,8 +41,7 @@ async def get_audit_logs(
 
 @router.get("/audit/export", summary="Export Audit Logs (CSV/PDF)")
 async def export_audit_logs(
-    token: VerifiedToken,
-    format: str = Query("csv", regex="^(csv|pdf)$"),
+    format: str = Query("csv", pattern="^(csv|pdf)$"),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     db: AsyncSession = Depends(get_db_session)

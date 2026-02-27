@@ -37,7 +37,7 @@ except ImportError:
         def __float__(self):
             return 0.0
         def tolist(self):
-            return [0.0]
+            return [0.0, 0.0, 0.0, 0.0, 0.0]  # Return 5 elements for embedding
     
     class nn:
         class Module:
