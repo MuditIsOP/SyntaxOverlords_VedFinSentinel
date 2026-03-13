@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VedFin Sentinel Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>VedFin Sentinel</h1>
+        <p>Backend Connectivity Dashboard</p>
+      </header>
+
+      <section class="panel">
+        <label for="apiBase">API Base URL</label>
+        <input id="apiBase" value="http://127.0.0.1:8000/api/v1" />
+      </section>
+
+      <nav class="menu" aria-label="Main menu">
+        <button data-menu="health">Health</button>
+        <button data-menu="metrics">Metrics</button>
+        <button data-menu="stream">Streaming</button>
+      </nav>
+
+      <section class="panel" data-section="health">
+        <h2>Health Checks</h2>
+        <div class="actions">
+          <button data-endpoint="/health">Core API Health</button>
+          <button data-endpoint="/metrics">System Metrics Snapshot</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" data-section="metrics">
+        <h2>Metrics</h2>
+        <div class="actions">
+          <button data-endpoint="/metrics">Dashboard Metrics</button>
+          <button data-endpoint="/metrics/precision-recall">Precision & Recall</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" data-section="stream">
+        <h2>Streaming</h2>
+        <div class="actions">
+          <button data-endpoint="/metrics/live">Live Metrics</button>
+          <button id="clearOutput">Clear Output</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Output</h2>
+        <pre id="output">Click any action button to see API output.</pre>
+      </section>
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
